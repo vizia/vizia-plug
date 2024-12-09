@@ -279,8 +279,7 @@ impl ParamSlider {
                             .class("value")
                             .class("value--multiple")
                             .child_space(Stretch(1.0))
-                            .height(Stretch(1.0))
-                            .width(Stretch(1.0))
+                            .size(Auto)
                             .hoverable(false);
                     }
                 })
@@ -299,8 +298,7 @@ impl ParamSlider {
                     .class("value")
                     .class("value--single")
                     .child_space(Stretch(1.0))
-                    .height(Stretch(1.0))
-                    .width(Stretch(1.0))
+                    .size(Auto)
                     .hoverable(false);
                 });
             }
