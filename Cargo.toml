@@ -3,30 +3,30 @@ name = "vizia_plug"
 version = "0.1.0"
 edition = "2021"
 authors = ["George Atkinson <geom3trik@vizia.dev>"]
-license = "GPL-3.0-or-later"
-homepage = "https://youtu.be/dQw4w9WgXcQ"
-description = "Demo plugin for Vizia"
+license = "MIT"
+description = "An adapter to use VIZIA GUIs with NIH-plug"
 
 [workspace]
-members = ["xtask"]
+members = ["xtask", "examples/gain_gui"]
 
 [lib]
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-# Remove the `assert_process_allocs` feature to allow allocations on the audio
-# thread in debug builds.
-nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git", features = ["assert_process_allocs", "standalone"] }
-nih_plug_vizia = { git = "https://github.com/robbert-vdh/nih-plug.git" }
-# Uncomment the below line to disable the on-by-default VST3 feature to remove
-# the GPL compatibility requirement
-# nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git", default_features = false, features = ["assert_process_allocs"] }
+nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git" }
+# vizia = { git = "https://github.com/vizia/vizia", default_features = false, features = ["baseview", "clipboard", "x11"] }
+vizia = { git = "https://github.com/vizia/vizia", branch = "vizia_plug", default_features = false, features = ["baseview", "clipboard", "x11"] }
 
-[profile.release]
-lto = "thin"
-strip = "symbols"
+crossbeam = "0.8"
+# To make the state persistable
+serde = { version = "1.0", features = ["derive"] }
 
-[profile.profiling]
-inherits = "release"
-debug = true
-strip = "none"
+
+# [profile.release]
+# lto = "thin"
+# strip = "symbols"
+
+# [profile.profiling]
+# inherits = "release"
+# debug = true
+# strip = "none"

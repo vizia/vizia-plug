@@ -1,162 +1,187 @@
-use nih_plug::prelude::*;
+//! [VIZIA](https://github.com/vizia/vizia) editor support for NIH plug.
+
+// See the comment in the main `nih_plug` crate
+#![allow(clippy::type_complexity)]
+
+use crossbeam::atomic::AtomicCell;
+use nih_plug::params::persist::PersistentField;
+use nih_plug::prelude::{Editor, GuiContext};
+use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use vizia::prelude::*;
+
+// Re-export for convenience
+pub use vizia;
 
 mod editor;
+pub mod widgets;
 
-// This is a shortened version of the gain example with most comments removed, check out
-// https://github.com/robbert-vdh/nih-plug/blob/master/plugins/examples/gain/src/lib.rs to get
-// started
+/// Create an [`Editor`] instance using a [`vizia`][::vizia] GUI. The [`ViziaState`] passed to this
+/// function contains the GUI's intitial size, and this is kept in sync whenever the GUI gets
+/// resized. You can also use this to know if the GUI is open, so you can avoid performing
+/// potentially expensive calculations while the GUI is not open. If you want this size to be
+/// persisted when restoring a plugin instance, then you can store it in a `#[persist = "key"]`
+/// field on your parameters struct.
+///
+/// The [`GuiContext`] is also passed to the app function. This is only meant for saving and
+/// restoring state as part of your plugin's preset handling. You should not interact with this
+/// directly to set parameters. Use the [`ParamEvent`][widgets::ParamEvent]s to change parameter
+/// values, and [`GuiContextEvent`] to trigger window resizes.
+///
+/// The `theming` argument controls what level of theming to apply. If you use
+/// [`ViziaTheming::Custom`], then you **need** to call
+/// [`vizia_plug::assets::register_noto_sans_light()`][assets::register_noto_sans_light()] at
+/// the start of your app function. Vizia's included fonts are also not registered by default. If
+/// you use the Roboto font that normally comes with Vizia or any of its emoji or icon fonts, you
+/// also need to register those using the functions in
+/// [`vizia_plug::vizia_assets`][crate::vizia_assets].
+///
+/// See [VIZIA](https://github.com/vizia/vizia)'s repository for examples on how to use this.
+pub fn create_vizia_editor<F>(
+    vizia_state: Arc<ViziaState>,
+    theming: ViziaTheming,
+    app: F,
+) -> Option<Box<dyn Editor>>
+where
+    F: Fn(&mut Context, Arc<dyn GuiContext>) + 'static + Send + Sync,
+{
+    Some(Box::new(editor::ViziaEditor {
+        vizia_state,
+        app: Arc::new(app),
+        theming,
 
-pub struct ViziaPlug {
-    params: Arc<ViziaPlugParams>,
+        // TODO: We can't get the size of the window when baseview does its own scaling, so if the
+        //       host does not set a scale factor on Windows or Linux we should just use a factor of
+        //       1. That may make the GUI tiny but it also prevents it from getting cut off.
+        #[cfg(target_os = "macos")]
+        scaling_factor: AtomicCell::new(None),
+        #[cfg(not(target_os = "macos"))]
+        scaling_factor: AtomicCell::new(Some(1.0)),
+
+        emit_parameters_changed_event: Arc::new(AtomicBool::new(false)),
+    }))
 }
 
-#[derive(Params)]
-struct ViziaPlugParams {
-    /// The parameter's ID is used to identify the parameter in the wrappred plugin API. As long as
-    /// these IDs remain constant, you can rename and reorder these fields as you wish. The
-    /// parameters are exposed to the host in the same order they were defined. In this case, this
-    /// gain parameter is stored as linear gain while the values are displayed in decibels.
-    #[id = "gain"]
-    pub gain: FloatParam,
+/// Controls what level of theming to apply to the editor.
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Default)]
+pub enum ViziaTheming {
+    /// Disable both `vizia_plug`'s and vizia's built-in theming.
+    None,
+    /// Disable `vizia_plug`'s custom theming. Vizia's included fonts are also not registered by
+    /// default. If you use the Roboto font that normally comes with Vizia or any of its emoji or
+    /// icon fonts, you need to register those using the functions in
+    /// [`vizia_plug::vizia_assets`][crate::vizia_assets].
+    Builtin,
+    /// Apply `vizia_plug`'s custom theming. This is the default. You **need** to call
+    /// [`vizia_plug::assets::register_noto_sans_light()`][assets::register_noto_sans_light()]
+    /// at the start of your app function for the font to work correctly.
+    #[default]
+    Custom,
 }
 
-impl Default for ViziaPlug {
-    fn default() -> Self {
-        Self {
-            params: Arc::new(ViziaPlugParams::default()),
-        }
+/// State for an `vizia_plug` editor. The scale factor can be manipulated at runtime using
+/// `cx.set_user_scale_factor()`.
+#[derive(Serialize, Deserialize)]
+pub struct ViziaState {
+    /// A function that returns the window's current size in logical pixels, before any sort of
+    /// scaling is applied. This size can be computed based on the plugin's current state.
+    #[serde(skip, default = "empty_size_fn")]
+    size_fn: Box<dyn Fn() -> (u32, u32) + Send + Sync>,
+    /// A scale factor that should be applied to `size` separate from from any system HiDPI scaling.
+    /// This can be used to allow GUIs to be scaled uniformly.
+    #[serde(with = "nih_plug::params::persist::serialize_atomic_cell")]
+    scale_factor: AtomicCell<f64>,
+    /// Whether the editor's window is currently open.
+    #[serde(skip)]
+    open: AtomicBool,
+}
+
+/// A default implementation for `size_fn` needed to be able to derive the `Deserialize` trait.
+fn empty_size_fn() -> Box<dyn Fn() -> (u32, u32) + Send + Sync> {
+    Box::new(|| (0, 0))
+}
+
+impl Debug for ViziaState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (width, height) = (self.size_fn)();
+
+        f.debug_struct("ViziaState")
+            .field("size_fn", &format!("<fn> ({}, {})", width, height))
+            .field("scale_factor", &self.scale_factor)
+            .field("open", &self.open)
+            .finish()
     }
 }
 
-impl Default for ViziaPlugParams {
-    fn default() -> Self {
-        Self {
-            // This gain is stored as linear gain. NIH-plug comes with useful conversion functions
-            // to treat these kinds of parameters as if we were dealing with decibels. Storing this
-            // as decibels is easier to work with, but requires a conversion for every sample.
-            gain: FloatParam::new(
-                "Gain",
-                util::db_to_gain(0.0),
-                FloatRange::Skewed {
-                    min: util::db_to_gain(-30.0),
-                    max: util::db_to_gain(30.0),
-                    // This makes the range appear as if it was linear when displaying the values as
-                    // decibels
-                    factor: FloatRange::gain_skew_factor(-30.0, 30.0),
-                },
-            )
-            // Because the gain parameter is stored as linear gain instead of storing the value as
-            // decibels, we need logarithmic smoothing
-            .with_smoother(SmoothingStyle::Logarithmic(50.0))
-            .with_unit(" dB")
-            // There are many predefined formatters we can use here. If the gain was stored as
-            // decibels instead of as a linear gain value, we could have also used the
-            // `.with_step_size(0.1)` function to get internal rounding.
-            .with_value_to_string(formatters::v2s_f32_gain_to_db(2))
-            .with_string_to_value(formatters::s2v_f32_gain_to_db()),
-        }
+impl<'a> PersistentField<'a, ViziaState> for Arc<ViziaState> {
+    fn set(&self, new_value: ViziaState) {
+        self.scale_factor.store(new_value.scale_factor.load());
+    }
+
+    fn map<F, R>(&self, f: F) -> R
+    where
+        F: Fn(&ViziaState) -> R,
+    {
+        f(self)
     }
 }
 
-impl Plugin for ViziaPlug {
-    const NAME: &'static str = "Vizia Plug";
-    const VENDOR: &'static str = "George Atkinson";
-    const URL: &'static str = env!("CARGO_PKG_HOMEPAGE");
-    const EMAIL: &'static str = "geom3trik@vizia.dev";
-
-    const VERSION: &'static str = env!("CARGO_PKG_VERSION");
-
-    // The first audio IO layout is used as the default. The other layouts may be selected either
-    // explicitly or automatically by the host or the user depending on the plugin API/backend.
-    const AUDIO_IO_LAYOUTS: &'static [AudioIOLayout] = &[AudioIOLayout {
-        main_input_channels: NonZeroU32::new(2),
-        main_output_channels: NonZeroU32::new(2),
-
-        aux_input_ports: &[],
-        aux_output_ports: &[],
-
-        // Individual ports and the layout as a whole can be named here. By default these names
-        // are generated as needed. This layout will be called 'Stereo', while a layout with
-        // only one input and output channel would be called 'Mono'.
-        names: PortNames::const_default(),
-    }];
-
-    const MIDI_INPUT: MidiConfig = MidiConfig::None;
-    const MIDI_OUTPUT: MidiConfig = MidiConfig::None;
-
-    const SAMPLE_ACCURATE_AUTOMATION: bool = true;
-
-    // If the plugin can send or receive SysEx messages, it can define a type to wrap around those
-    // messages here. The type implements the `SysExMessage` trait, which allows conversion to and
-    // from plain byte buffers.
-    type SysExMessage = ();
-    // More advanced plugins can use this to run expensive background tasks. See the field's
-    // documentation for more information. `()` means that the plugin does not have any background
-    // tasks.
-    type BackgroundTask = ();
-
-    fn params(&self) -> Arc<dyn Params> {
-        self.params.clone()
+impl ViziaState {
+    /// Initialize the GUI's state. This value can be passed to [`create_vizia_editor()`]. The
+    /// callback always returns the window's current size is in logical pixels, so before it is
+    /// multiplied by the DPI scaling factor. This size can be computed based on the plugin's
+    /// current state.
+    pub fn new(size_fn: impl Fn() -> (u32, u32) + Send + Sync + 'static) -> Arc<ViziaState> {
+        Arc::new(ViziaState {
+            size_fn: Box::new(size_fn),
+            scale_factor: AtomicCell::new(1.0),
+            open: AtomicBool::new(false),
+        })
     }
 
-    fn initialize(
-        &mut self,
-        _audio_io_layout: &AudioIOLayout,
-        _buffer_config: &BufferConfig,
-        _context: &mut impl InitContext<Self>,
-    ) -> bool {
-        // Resize buffers and perform other potentially expensive initialization operations here.
-        // The `reset()` function is always called right after this function. You can remove this
-        // function if you do not need it.
-        true
+    /// The same as [`new()`][Self::new()], but with a separate initial scale factor. This scale
+    /// factor gets applied on top of any HiDPI scaling, and it can be modified at runtime by
+    /// changing `cx.set_user_scale_factor()`.
+    pub fn new_with_default_scale_factor(
+        size_fn: impl Fn() -> (u32, u32) + Send + Sync + 'static,
+        default_scale_factor: f64,
+    ) -> Arc<ViziaState> {
+        Arc::new(ViziaState {
+            size_fn: Box::new(size_fn),
+            scale_factor: AtomicCell::new(default_scale_factor),
+            open: AtomicBool::new(false),
+        })
     }
 
-    fn reset(&mut self) {
-        // Reset buffers and envelopes here. This can be called from the audio thread and may not
-        // allocate. You can remove this function if you do not need it.
+    /// Returns a `(width, height)` pair for the current size of the GUI in logical pixels, after
+    /// applying the user scale factor.
+    pub fn scaled_logical_size(&self) -> (u32, u32) {
+        let (logical_width, logical_height) = self.inner_logical_size();
+        let scale_factor = self.scale_factor.load();
+
+        (
+            (logical_width as f64 * scale_factor).round() as u32,
+            (logical_height as f64 * scale_factor).round() as u32,
+        )
     }
 
-    fn process(
-        &mut self,
-        buffer: &mut Buffer,
-        _aux: &mut AuxiliaryBuffers,
-        _context: &mut impl ProcessContext<Self>,
-    ) -> ProcessStatus {
-        for channel_samples in buffer.iter_samples() {
-            // Smoothing is optionally built into the parameters themselves
-            let gain = self.params.gain.smoothed.next();
-
-            for sample in channel_samples {
-                *sample *= gain;
-            }
-        }
-
-        ProcessStatus::Normal
+    /// Returns a `(width, height)` pair for the current size of the GUI in logical pixels before
+    /// applying the user scale factor.
+    pub fn inner_logical_size(&self) -> (u32, u32) {
+        (self.size_fn)()
     }
 
-    fn editor(&mut self, _async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
-        editor::create(self.params.clone())
+    /// Get the non-DPI related uniform scaling factor the GUI's size will be multiplied with. This
+    /// can be changed by changing `cx.user_scale_factor`.
+    pub fn user_scale_factor(&self) -> f64 {
+        self.scale_factor.load()
+    }
+
+    /// Whether the GUI is currently visible.
+    // Called `is_open()` instead of `open()` to avoid the ambiguity.
+    pub fn is_open(&self) -> bool {
+        self.open.load(Ordering::Acquire)
     }
 }
-
-impl ClapPlugin for ViziaPlug {
-    const CLAP_ID: &'static str = "com.your-domain.vizia-plug";
-    const CLAP_DESCRIPTION: Option<&'static str> = Some("Demo plugin for Vizia");
-    const CLAP_MANUAL_URL: Option<&'static str> = Some(Self::URL);
-    const CLAP_SUPPORT_URL: Option<&'static str> = None;
-
-    // Don't forget to change these features
-    const CLAP_FEATURES: &'static [ClapFeature] = &[ClapFeature::AudioEffect, ClapFeature::Stereo];
-}
-
-impl Vst3Plugin for ViziaPlug {
-    const VST3_CLASS_ID: [u8; 16] = *b"Exactly16Chars!!";
-
-    // And also don't forget to change these categories
-    const VST3_SUBCATEGORIES: &'static [Vst3SubCategory] =
-        &[Vst3SubCategory::Fx, Vst3SubCategory::Dynamics];
-}
-
-nih_export_clap!(ViziaPlug);
-nih_export_vst3!(ViziaPlug);
