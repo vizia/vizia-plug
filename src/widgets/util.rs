@@ -17,7 +17,7 @@ pub trait ModifiersExt {
 impl ModifiersExt for Modifiers {
     fn command(&self) -> bool {
         #[cfg(target_os = "macos")]
-        let result = self.contains(Modifiers::LOGO);
+        let result = self.contains(Modifiers::SUPER);
 
         #[cfg(not(target_os = "macos"))]
         let result = self.contains(Modifiers::CTRL);
