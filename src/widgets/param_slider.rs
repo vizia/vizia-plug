@@ -49,9 +49,11 @@ pub enum ParamSliderStyle {
     Centered,
     /// Always fill the bar starting from the left.
     FromLeft,
+    /// Fill the bar from the mid point, regardless of where the default value lies
+    FromMidPoint,
     /// Show the current step instead of filling a portion of the bar, useful for discrete
     /// parameters. Set `even` to `true` to distribute the ticks evenly instead of following the
-    /// parameter's distribution. This can be desireable because discrete parameters have smaller
+    /// parameter's distribution. This can be desirable because discrete parameters have smaller
     /// ranges near the edges (they'll span only half the range, which can make the display look
     /// odd).
     CurrentStep { even: bool },
@@ -331,6 +333,16 @@ impl ParamSlider {
                     if delta >= 1e-3 { delta } else { 0.0 },
                 )
             }
+            ParamSliderStyle::FromMidPoint => {
+                let delta = (0.5 - current_value).abs();
+
+                // Don't draw the filled portion at all if it could have been a
+                // rounding error since those slivers just look weird
+                (
+                    0.5_f32.min(current_value),
+                    if delta >= 1e-3 { delta } else { 0.0 },
+                )
+            }
             ParamSliderStyle::Centered | ParamSliderStyle::FromLeft => (0.0, current_value),
             ParamSliderStyle::CurrentStep { even: true }
             | ParamSliderStyle::CurrentStepLabeled { even: true }
@@ -367,7 +379,9 @@ impl ParamSlider {
             ParamSliderStyle::CurrentStep { .. } | ParamSliderStyle::CurrentStepLabeled { .. } => {
                 (0.0, 0.0)
             }
-            ParamSliderStyle::Centered | ParamSliderStyle::FromLeft => {
+            ParamSliderStyle::Centered
+            | ParamSliderStyle::FromMidPoint
+            | ParamSliderStyle::FromLeft => {
                 let modulation_start = param.unmodulated_normalized_value();
 
                 (
@@ -383,7 +397,6 @@ impl ParamSlider {
     /// to match up with the fill value display. This still needs to be wrapped in a parameter
     /// automation gesture.
     fn set_normalized_value_drag(&self, cx: &mut EventContext, normalized_value: f32) {
-        
         let normalized_value = match (self.style, self.param_base.step_count()) {
             (
                 ParamSliderStyle::CurrentStep { even: true }
@@ -399,8 +412,6 @@ impl ParamSlider {
             }
             _ => normalized_value,
         };
-
-        
 
         self.param_base.set_normalized_value(cx, normalized_value);
     }
@@ -504,7 +515,6 @@ impl View for ParamSlider {
                 }
             }
             WindowEvent::MouseMove(x, _y) => {
-                
                 // if meta.target == cx.current() {
                 //     println!("{}", *x);
                 // }
@@ -534,8 +544,6 @@ impl View for ParamSlider {
                         );
                     } else {
                         self.granular_drag_status = None;
-
-                        
 
                         self.set_normalized_value_drag(
                             cx,

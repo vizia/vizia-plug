@@ -1,7 +1,7 @@
 use atomic_float::AtomicF32;
 use nih_plug::prelude::*;
-use vizia_plug::ViziaState;
 use std::sync::Arc;
+use vizia_plug::ViziaState;
 
 mod editor;
 

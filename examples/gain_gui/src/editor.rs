@@ -1,11 +1,11 @@
 use atomic_float::AtomicF32;
 use nih_plug::prelude::{util, Editor};
-use vizia_plug::vizia::prelude::*;
-use vizia_plug::widgets::*;
-use vizia_plug::{create_vizia_editor, ViziaState, ViziaTheming};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
+use vizia_plug::vizia::prelude::*;
+use vizia_plug::widgets::*;
+use vizia_plug::{create_vizia_editor, ViziaState, ViziaTheming};
 
 use crate::GainParams;
 
@@ -63,6 +63,5 @@ pub(crate) fn create(
         .row_between(Pixels(0.0))
         .child_left(Stretch(1.0))
         .child_right(Stretch(1.0));
-
     })
 }

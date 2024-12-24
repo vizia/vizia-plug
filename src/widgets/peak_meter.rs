@@ -105,7 +105,7 @@ impl PeakMeter {
                                 .class("ticks__label")
                                 .class("ticks__label--inf")
                         } else if last_tick {
-                            // This is only inclued in the array to make positioning this easier
+                            // This is only included in the array to make positioning this easier
                             Label::new(cx, "dBFS")
                                 .class("ticks__label")
                                 .class("ticks__label--dbfs")
@@ -206,12 +206,10 @@ where
 
             let grayscale_color = 0.3 + ((1.0 - tick_fraction) * 0.5);
             let mut paint = vg::Paint::default();
-            paint.set_color4f(vg::Color4f::new(
-                grayscale_color,
-                grayscale_color,
-                grayscale_color,
-                1.0
-            ), None);
+            paint.set_color4f(
+                vg::Color4f::new(grayscale_color, grayscale_color, grayscale_color, 1.0),
+                None,
+            );
             paint.set_stroke_width(TICK_WIDTH * dpi_scale);
             paint.set_style(vg::PaintStyle::Stroke);
             canvas.draw_path(&path, &paint);
