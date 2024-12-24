@@ -1,6 +1,5 @@
 //! The [`Editor`] trait implementation for Vizia editors.
 
-
 use crossbeam::atomic::AtomicCell;
 use nih_plug::debug::*;
 use nih_plug::prelude::{Editor, GuiContext, ParentWindowHandle};
@@ -49,15 +48,15 @@ impl Editor for ViziaEditor {
         let mut application = Application::new(move |cx| {
             // Set some default styles to match the iced integration
             //if theming >= ViziaTheming::Custom {
-                cx.set_default_font(&[NOTO_SANS]);
-                if let Err(err) = cx.add_stylesheet(include_style!("src/assets/theme.css")) {
-                    nih_error!("Failed to load stylesheet: {err:?}");
-                    panic!();
-                }
+            cx.set_default_font(&[NOTO_SANS]);
+            if let Err(err) = cx.add_stylesheet(include_style!("src/assets/theme.css")) {
+                nih_error!("Failed to load stylesheet: {err:?}");
+                panic!();
+            }
 
-                // There doesn't seem to be any way to bundle styles with a widget, so we'll always
-                // include the style sheet for our custom widgets at context creation
-                widgets::register_theme(cx);
+            // There doesn't seem to be any way to bundle styles with a widget, so we'll always
+            // include the style sheet for our custom widgets at context creation
+            widgets::register_theme(cx);
             //}
 
             // Any widget can change the parameters by emitting `ParamEvent` events. This model will

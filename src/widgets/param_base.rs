@@ -210,14 +210,13 @@ impl ParamWidgetBase {
         //       avoid this normalized->plain->normalized conversion for parameters that don't need
         //       it
         let plain_value = unsafe { self.param_ptr.preview_plain(normalized_value) };
-        
-            // For the aforementioned snapping
-            let normalized_plain_value = unsafe { self.param_ptr.preview_normalized(plain_value) };
-            cx.emit(RawParamEvent::SetParameterNormalized(
-                self.param_ptr,
-                normalized_plain_value,
-            ));
-        
+
+        // For the aforementioned snapping
+        let normalized_plain_value = unsafe { self.param_ptr.preview_normalized(plain_value) };
+        cx.emit(RawParamEvent::SetParameterNormalized(
+            self.param_ptr,
+            normalized_plain_value,
+        ));
     }
 
     /// End an automation gesture. This must be called at the end of a gesture, after zero or more
