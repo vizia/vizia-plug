@@ -4,22 +4,23 @@
   background-color: #fafafa;
   color: #0a0a0a;
   font-size: 15;
-  /*
-   * NOTE: vizia's font rendering looks way too dark and thick. Going one font
-   *       weight lower seems to compensate for this.
-   */
   font-family: 'Noto Sans';
+  font-weight: 200;
 }
+
+/* * {
+  border: solid red 1px;
+} */
 
 scrollview > scroll_content {
   /* Normally the scroll bar overlaps with the content, so we'll add a little offset to prevent that */
-  child-right: 15px;
+  padding-right: 15px;
 }
 
 scrollview scrollbar {
   background-color: #dadada;
   corner-radius: 0px;
-  child-space: 0px;
+  padding: 0px;
 }
 
 scrollview scrollbar.horizontal {

@@ -206,8 +206,7 @@ impl ParamSlider {
             })
             // `.child_space(Stretch(1.0))` no longer works
             .class("align_center")
-            .child_top(Stretch(1.0))
-            .child_bottom(Stretch(1.0))
+            .alignment(Alignment::Left)
             .height(Stretch(1.0))
             .width(Stretch(1.0));
     }
@@ -278,8 +277,8 @@ impl ParamSlider {
                         Label::new(cx, preview_lens)
                             .class("value")
                             .class("value--multiple")
-                            .child_space(Stretch(1.0))
-                            .size(Auto)
+                            .alignment(Alignment::Center)
+                            .size(Stretch(1.0))
                             .hoverable(false);
                     }
                 })
@@ -297,8 +296,8 @@ impl ParamSlider {
                     }
                     .class("value")
                     .class("value--single")
-                    .child_space(Stretch(1.0))
-                    .size(Auto)
+                    .alignment(Alignment::Center)
+                    .size(Stretch(1.0))
                     .hoverable(false);
                 });
             }

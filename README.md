@@ -1,9 +1,13 @@
 # Vizia Plug
 
-## Building
+A replacement for `nih-plug-vizia` which updates it to the latest version of `vizia`.
 
-After installing [Rust](https://rustup.rs/), you can compile Vizia Plug as follows:
+This crate allows for the use of the Vizia GUI library to be used with the nih-plug plugin framework.
 
-```shell
-cargo xtask bundle vizia_plug --release
+## Building Examples
+
 ```
+cargo +nightly xtask bundle gain_gui --release
+```
+
+The outputs will be placed in the `target\bundled` directory.

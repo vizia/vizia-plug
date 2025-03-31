@@ -115,14 +115,13 @@ impl PeakMeter {
                         .overflow(Overflow::Visible);
 
                         if needs_minus_offset {
-                            label.child_right(Pixels(font_size * 0.15));
+                            label.padding_right(Pixels(font_size * 0.15));
                         }
                     })
                     .height(Stretch(1.0))
                     .left(Percentage(tick_pct - (WIDTH_PCT / 2.0)))
                     .width(Percentage(WIDTH_PCT))
-                    .child_left(Stretch(1.0))
-                    .child_right(Stretch(1.0))
+                    .alignment(Alignment::Left)
                     .overflow(Overflow::Visible);
                 }
             })
