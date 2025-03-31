@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use vizia::prelude::*;
 
+use crate::widgets::RawParamEvent;
 use crate::{widgets, ViziaState, ViziaTheming};
 
 pub const NOTO_SANS: &str = "Noto Sans";
@@ -88,21 +89,21 @@ impl Editor for ViziaEditor {
                 .unwrap_or(WindowScalePolicy::SystemScaleFactor),
         )
         .inner_size((unscaled_width, unscaled_height))
-        .user_scale_factor(user_scale_factor);
-        // .on_idle({
-        //     let emit_parameters_changed_event = self.emit_parameters_changed_event.clone();
-        //     move |cx| {
-        //         if emit_parameters_changed_event
-        //             .compare_exchange(true, false, Ordering::AcqRel, Ordering::Relaxed)
-        //             .is_ok()
-        //         {
-        //             cx.emit_custom(
-        //                 Event::new(RawParamEvent::ParametersChanged)
-        //                     .propagate(Propagation::Subtree),
-        //             );
-        //         }
-        //     }
-        // });
+        .user_scale_factor(user_scale_factor)
+        .on_idle({
+            let emit_parameters_changed_event = self.emit_parameters_changed_event.clone();
+            move |cx| {
+                if emit_parameters_changed_event
+                    .compare_exchange(true, false, Ordering::AcqRel, Ordering::Relaxed)
+                    .is_ok()
+                {
+                    cx.emit_custom(
+                        Event::new(RawParamEvent::ParametersChanged)
+                            .propagate(Propagation::Subtree),
+                    );
+                }
+            }
+        });
 
         // This way the plugin can decide to use none of the built in theming
         if theming == ViziaTheming::None {

@@ -129,6 +129,9 @@ impl PeakMeter {
             .overflow(Overflow::Visible);
         })
         .overflow(Overflow::Visible)
+        .bind(level_dbfs, |mut handle, _|{
+            handle.needs_redraw();
+        })
     }
 }
 
