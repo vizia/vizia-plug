@@ -128,8 +128,11 @@ peak-meter .ticks__tick {
 }
 
 peak-meter .ticks__label {
+  position-type: absolute;
   top: 4px; /* In pixels in an attempt to get this to better align to the grid */
   font-size: 11; /* 14.667px */
+  left: 1s;
+  right: 1s;
 }
 
 resize-handle {

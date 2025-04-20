@@ -78,29 +78,17 @@ impl PeakMeter {
             .build(cx, |_| {})
             .class("bar");
 
-            ZStack::new(cx, |cx| {
-                const WIDTH_PCT: f32 = 50.0;
+            HStack::new(cx, |cx| {
                 for tick_db in TEXT_TICKS {
-                    let tick_fraction = (tick_db as f32 - MIN_TICK) / (MAX_TICK - MIN_TICK);
-                    let tick_pct = tick_fraction * 100.0;
-                    // We'll shift negative numbers slightly to the left so they look more centered
-                    let needs_minus_offset = tick_db < 0;
-
-                    ZStack::new(cx, |cx| {
-                        let first_tick = tick_db == TEXT_TICKS[0];
-                        let last_tick = tick_db == TEXT_TICKS[TEXT_TICKS.len() - 1];
-
+                    let first_tick = tick_db == TEXT_TICKS[0];
+                    let last_tick = tick_db == TEXT_TICKS[TEXT_TICKS.len() - 1];
+                    VStack::new(cx, |cx| {
+                        
                         if !last_tick {
-                            // FIXME: This is not aligned to the pixel grid and some ticks will look
-                            //        blurry, is there a way to fix this?
                             Element::new(cx).class("ticks__tick");
                         }
-
-                        let font_size = {
-                            let event_cx = EventContext::new(cx);
-                            event_cx.font_size() * event_cx.scale_factor()
-                        };
-                        let label = if first_tick {
+                        
+                        if first_tick {
                             Label::new(cx, "-inf")
                                 .class("ticks__label")
                                 .class("ticks__label--inf")
@@ -111,24 +99,20 @@ impl PeakMeter {
                                 .class("ticks__label--dbfs")
                         } else {
                             Label::new(cx, &tick_db.to_string()).class("ticks__label")
-                        }
-                        .overflow(Overflow::Visible);
+                        };
 
-                        if needs_minus_offset {
-                            label.padding_right(Pixels(font_size * 0.15));
-                        }
                     })
-                    .height(Stretch(1.0))
-                    .left(Percentage(tick_pct - (WIDTH_PCT / 2.0)))
-                    .width(Percentage(WIDTH_PCT))
-                    .alignment(Alignment::Left)
-                    .overflow(Overflow::Visible);
+                    .width(Auto)
+                    .alignment(Alignment::TopCenter);
+
+                    if !last_tick {
+                        Spacer::new(cx);
+                    }
+                    
                 }
             })
-            .class("ticks")
-            .overflow(Overflow::Visible);
+            .class("ticks");
         })
-        .overflow(Overflow::Visible)
         .bind(level_dbfs, |mut handle, _|{
             handle.needs_redraw();
         })
