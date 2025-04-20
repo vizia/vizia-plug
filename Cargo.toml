@@ -14,7 +14,7 @@ crate-type = ["cdylib", "lib"]
 
 [dependencies]
 nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git" }
-vizia = { git = "https://github.com/vizia/vizia", rev = "dd5dcac66b3dd2c433a5abdecdb2a43005a14313", default_features = false, features = ["baseview", "clipboard", "x11"] }
+vizia = { git = "https://github.com/vizia/vizia", rev = "a6fad3251aca138ff2482fc54224dd7b9a967831", default-features = false, features = ["baseview", "clipboard", "x11"] }
 # vizia = { path = "../vizia", default_features = false, features = ["baseview", "clipboard", "x11"] }
 
 crossbeam = "0.8"
