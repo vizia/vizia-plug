@@ -146,7 +146,7 @@ where
         let border_color = cx.border_color();
         let border_width = cx.border_width();
 
-        let mut path = vg::Path::new();
+        let mut path = vg::PathBuilder::new();
         {
             let x = bounds.x + border_width / 2.0;
             let y = bounds.y + border_width / 2.0;
@@ -163,7 +163,7 @@ where
         // Fill with background color
         let mut paint = vg::Paint::default();
         paint.set_color(background_color);
-        canvas.draw_path(&path, &paint);
+        canvas.draw_path(&path.snapshot(), &paint);
 
         // And now for the fun stuff. We'll try to not overlap the border, but we'll draw that last
         // just in case.
@@ -186,7 +186,7 @@ where
 
             // femtovg draws paths centered on these coordinates, so in order to be pixel perfect we
             // need to account for that. Otherwise the ticks will be 2px wide instead of 1px.
-            let mut path = vg::Path::new();
+            let mut path = vg::PathBuilder::new();
             path.move_to((tick_x as f32 + (dpi_scale / 2.0), bar_bounds.top()));
             path.line_to((tick_x as f32 + (dpi_scale / 2.0), bar_bounds.bottom()));
 
@@ -200,7 +200,7 @@ where
             ), None);
             paint.set_stroke_width(TICK_WIDTH * dpi_scale);
             paint.set_style(vg::PaintStyle::Stroke);
-            canvas.draw_path(&path, &paint);
+            canvas.draw_path(&path.snapshot(), &paint);
         }
 
         // Draw the hold peak value if the hold time option has been set
@@ -213,7 +213,7 @@ where
             // femtovg draws paths centered on these coordinates, so in order to be pixel perfect we
             // need to account for that. Otherwise the ticks will be 2px wide instead of 1px.
             let peak_x = db_to_x_coord(peak_dbfs);
-            let mut path = vg::Path::new();
+            let mut path = vg::PathBuilder::new();
             path.move_to((peak_x + (dpi_scale / 2.0), bar_bounds.top()));
             path.line_to((peak_x + (dpi_scale / 2.0), bar_bounds.bottom()));
 
@@ -221,7 +221,7 @@ where
             paint.set_color4f(vg::Color4f::new(0.3, 0.3, 0.3, 1.0), None);
             paint.set_stroke_width(TICK_WIDTH * dpi_scale);
             paint.set_style(vg::PaintStyle::Stroke);
-            canvas.draw_path(&path, &paint);
+            canvas.draw_path(&path.snapshot(), &paint);
         }
 
         // Draw border last
@@ -229,6 +229,6 @@ where
         paint.set_color(border_color);
         paint.set_stroke_width(border_width);
         paint.set_style(vg::PaintStyle::Stroke);
-        canvas.draw_path(&path, &paint);
+        canvas.draw_path(&path.snapshot(), &paint);
     }
 }
