@@ -1,5 +1,7 @@
 //! A toggleable button that integrates with NIH-plug's [`Param`] types.
 
+use std::sync::Arc;
+
 use nih_plug::prelude::Param;
 use vizia::prelude::*;
 
@@ -9,15 +11,14 @@ use super::param_base::ParamWidgetBase;
 /// [`BoolParam`][nih_plug::prelude::BoolParam]s. Clicking on the button will toggle between the
 /// parameter's minimum and maximum value. The `:checked` pseudoclass indicates whether or not the
 /// button is currently pressed.
-#[derive(Lens)]
 pub struct ParamButton {
     param_base: ParamWidgetBase,
 
     // These fields are set through modifiers:
     /// Whether or not to listen to scroll events for changing the parameter's value in steps.
     use_scroll_wheel: bool,
-    /// A specific label to use instead of displaying the parameter's value.
-    label_override: Option<String>,
+    /// A specific label to use instead of displaying the parameter's name.
+    label_override: SyncSignal<Option<String>>,
 
     /// The number of (fractional) scrolled lines that have not yet been turned into parameter
     /// change events. This is needed to support trackpads with smooth scrolling.
@@ -27,48 +28,46 @@ pub struct ParamButton {
 impl ParamButton {
     /// Creates a new [`ParamButton`] for the given parameter. See
     /// [`ParamSlider`][super::ParamSlider] for more information on this function's arguments.
-    pub fn new<L, Params, P, FMap>(
+    pub fn new<Params, P, FMap>(
         cx: &mut Context,
-        params: L,
+        params: Arc<Params>,
         params_to_param: FMap,
     ) -> Handle<Self>
     where
-        L: Lens<Target = Params> + Clone,
         Params: 'static,
         P: Param + 'static,
         FMap: Fn(&Params) -> &P + Copy + 'static,
     {
+        let param_base = ParamWidgetBase::new(cx, params.clone(), params_to_param);
+        let modulated_signal = param_base.modulated_signal(cx);
+
+        let label_override = SyncSignal::new(None::<String>);
+
         Self {
-            param_base: ParamWidgetBase::new(cx, params, params_to_param),
-
+            param_base,
             use_scroll_wheel: true,
-            label_override: None,
-
+            label_override,
             scrolled_lines: 0.0,
         }
         .build(
             cx,
             ParamWidgetBase::build_view(params, params_to_param, move |cx, param_data| {
-                Binding::new(cx, Self::label_override, move |cx, label_override| {
-                    match label_override.get(cx) {
-                        Some(label_override) => Label::new(cx, &label_override),
-                        None => Label::new(cx, param_data.param().name()),
-                    }
-                    .hoverable(false);
-                })
+                let param_name = param_data.param().name().to_owned();
+                Binding::new(cx, label_override, move |cx| {
+                    let text = label_override
+                        .get()
+                        .unwrap_or_else(|| param_name.clone());
+                    Label::new(cx, &text).hoverable(false);
+                });
             }),
         )
-        // We'll add the `:checked` pseudoclass when the button is pressed
-        // NOTE: We use the normalized value _with modulation_ for this. There's no convenient way
-        //       to show both modulated and unmodulated values here.
-        .checked(ParamWidgetBase::make_lens(
-            params,
-            params_to_param,
-            |param| param.modulated_normalized_value() >= 0.5,
-        ))
+        // We'll add the `:checked` pseudoclass when the button is pressed. This uses the modulated
+        // normalised value — there's no convenient way to display both modulated and unmodulated
+        // values for a button.
+        .checked(modulated_signal.map(|v| *v >= 0.5))
     }
 
-    /// Set the parameter's normalized value to either 0.0 or 1.0 depending on its current value.
+    /// Set the parameter's normalised value to either 0.0 or 1.0 depending on its current value.
     fn toggle_value(&self, cx: &mut EventContext) {
         let current_value = self.param_base.unmodulated_normalized_value();
         let new_value = if current_value >= 0.5 { 0.0 } else { 1.0 };
@@ -121,21 +120,20 @@ impl View for ParamButton {
 
 /// Extension methods for [`ParamButton`] handles.
 pub trait ParamButtonExt {
-    /// Don't respond to scroll wheel events. Useful when this button is used as part of a scrolling
-    /// view.
+    /// Don't respond to scroll wheel events. Useful when this button is used as part of a
+    /// scrolling view.
     fn disable_scroll_wheel(self) -> Self;
 
-    /// Change the colors scheme for a bypass button. This simply adds the `bypass` class.
+    /// Change the colour scheme for a bypass button. Adds the `bypass` CSS class.
     fn for_bypass(self) -> Self;
 
-    /// Change the label used for the button. If this is not set, then the parameter's name will be
-    /// used.
+    /// Change the label used for the button. If this is not set, the parameter's name is used.
     fn with_label(self, value: impl Into<String>) -> Self;
 }
 
 impl ParamButtonExt for Handle<'_, ParamButton> {
     fn disable_scroll_wheel(self) -> Self {
-        self.modify(|param_slider: &mut ParamButton| param_slider.use_scroll_wheel = false)
+        self.modify(|param_button: &mut ParamButton| param_button.use_scroll_wheel = false)
     }
 
     fn for_bypass(self) -> Self {
@@ -144,7 +142,7 @@ impl ParamButtonExt for Handle<'_, ParamButton> {
 
     fn with_label(self, value: impl Into<String>) -> Self {
         self.modify(|param_button: &mut ParamButton| {
-            param_button.label_override = Some(value.into())
+            param_button.label_override.set(Some(value.into()));
         })
     }
 }
