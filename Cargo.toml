@@ -1,7 +1,7 @@
 [package]
 name = "vizia_plug"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 authors = ["George Atkinson <geom3trik@vizia.dev>"]
 license = "MIT"
 description = "An adapter to use VIZIA GUIs with NIH-plug"
@@ -14,7 +14,7 @@ crate-type = ["cdylib", "lib"]
 
 [dependencies]
 nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git" }
-vizia = { git = "https://github.com/vizia/vizia", rev = "ea8e7144f00877fd5978ff2eacdce7432b1ddd90", default-features = false, features = ["baseview", "clipboard", "x11"] }
+vizia = { git = "https://github.com/vizia/vizia", rev = "b2f68a02094c2ba9e4f52553295aa350043fe3c1", default-features = false, features = ["baseview", "clipboard", "x11"] }
 # vizia = { path = "../vizia", default_features = false, features = ["baseview", "clipboard", "x11"] }
 
 crossbeam = "0.8"
