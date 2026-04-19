@@ -1,7 +1,5 @@
 //! A base widget for creating other widgets that integrate with NIH-plug's [`Param`] types.
 
-use std::sync::Arc;
-
 use nih_plug::prelude::*;
 use vizia::prelude::*;
 
@@ -9,50 +7,57 @@ use super::param_registry::{ParamAxis, ParamRegistry};
 use super::RawParamEvent;
 
 /// A helper for creating parameter widgets. The general idea is that a parameter widget struct
-/// adds a [`ParamWidgetBase`] field on its struct, and then calls [`ParamWidgetBase::view`] in its
-/// view build function. The stored `ParamWidgetBase` object can then be used in the widget's event
-/// handlers to interact with the parameter, and provides accessors (via
-/// [`ParamWidgetBase::modulated_signal`] / [`ParamWidgetBase::unmodulated_signal`]) for binding
-/// the parameter's current value into views.
+/// stores a [`ParamWidgetBase`] field, calls [`ParamWidgetBase::view`] in its build function,
+/// and uses the base's action methods ([`begin_set_parameter`](Self::begin_set_parameter),
+/// [`set_normalized_value`](Self::set_normalized_value),
+/// [`end_set_parameter`](Self::end_set_parameter)) in its event handlers.
 ///
-/// Signals are owned by the editor's [`ParamRegistry`] model and shared across all widgets that
-/// reference the same parameter.
+/// Signals for a parameter's live values are owned by the editor's [`ParamRegistry`] model and
+/// shared across every widget that targets the same parameter, so binding a label and a knob to
+/// the same parameter costs a single `SyncSignal<f32>`.
+///
+/// `ParamWidgetBase` is `Copy` because its entire state is a [`ParamPtr`]. Widgets can freely
+/// capture a copy into any `'static` closure (e.g. a `Binding::new` builder) without dragging a
+/// borrow of the user's `Params` struct along with it.
+#[derive(Clone, Copy)]
 pub struct ParamWidgetBase {
-    /// Opaque handle to the parameter. Stable for the lifetime of the plugin; safe to copy and
-    /// re-use across widget instances.
+    /// Opaque handle to the parameter. Stable for the lifetime of the plugin; `Copy`, so safe to
+    /// reuse across widget instances.
     param_ptr: ParamPtr,
 }
 
-/// Data and signal accessors that can be used to draw the parameter widget. The [`param`][Self::param]
-/// field should only be used for looking up static data (parameter name, step count, formatters).
-/// For binding live values to view properties, use the `signal` accessors which return
-/// [`SyncSignal<f32>`]s tracked by the reactive graph.
-pub struct ParamWidgetData<P: Param + 'static> {
-    // HACK: This needs to be a static reference because of the way bindings in vizia work. The
-    //       field is not `pub` for this reason — widgets access it via `ParamWidgetData::param()`.
-    param: &'static P,
+/// Data and signal accessors passed to the build closure in
+/// [`ParamWidgetBase::view`] / [`ParamWidgetBase::build_view`]. Carries a borrow of the parameter
+/// for typed access to static metadata (name, step count, formatters) plus lazy accessors for
+/// the registry-owned signals that track live values.
+///
+/// The `'a` lifetime matches the borrow passed into `view` / `build_view`. In the normal
+/// vizia-plug setup the plugin's `Params` struct is pinned for the plugin's lifetime via
+/// `Arc<Params>`, so a borrow of a specific parameter inside it easily outlives any widget that
+/// refers to it.
+pub struct ParamWidgetData<'a, P: Param + 'static> {
+    param: &'a P,
     param_ptr: ParamPtr,
 }
 
-impl<P: Param + 'static> Clone for ParamWidgetData<P> {
+impl<P: Param + 'static> Clone for ParamWidgetData<'_, P> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<P: Param + 'static> Copy for ParamWidgetData<P> {}
+impl<P: Param + 'static> Copy for ParamWidgetData<'_, P> {}
 
-impl<P: Param + 'static> ParamWidgetData<P> {
-    /// The parameter in question. Use for querying static information (name, unit, step count,
-    /// formatters). Don't use this to read the parameter's current value — use
-    /// [`modulated_signal`][Self::modulated_signal] instead so the reactive graph can track the
-    /// dependency.
-    pub fn param(&self) -> &P {
+impl<'a, P: Param + 'static> ParamWidgetData<'a, P> {
+    /// The parameter itself. Use for static information (name, unit, step count, formatters). For
+    /// reading the live value, use [`modulated_signal`](Self::modulated_signal) instead so the
+    /// reactive graph can track the dependency.
+    pub fn param(&self) -> &'a P {
         self.param
     }
 
-    /// The underlying [`ParamPtr`] for this parameter. Widgets don't usually need this directly;
-    /// prefer the signal accessors or the action methods on [`ParamWidgetBase`].
+    /// The underlying [`ParamPtr`]. Widgets don't usually need this directly; prefer the signal
+    /// accessors or the action methods on [`ParamWidgetBase`].
     pub fn param_ptr(&self) -> ParamPtr {
         self.param_ptr
     }
@@ -81,74 +86,47 @@ macro_rules! param_ptr_forward(
 );
 
 impl ParamWidgetBase {
-    /// Creates a [`ParamWidgetBase`] for the given parameter. Parameter changes are handled by
-    /// emitting [`ParamEvent`][super::ParamEvent]s, which are automatically processed by the
-    /// vizia-plug wrapper.
+    /// Creates a [`ParamWidgetBase`] for the given parameter. The reference is only used at
+    /// construction time to resolve the parameter's opaque [`ParamPtr`] — the widget does not
+    /// keep a borrow of it. Callers typically pass a field of their `Params` struct, e.g.
+    /// `ParamSlider::new(cx, &params.gain)`.
     ///
-    /// `params` is a shared reference to the plugin's `Params` struct; `params_to_param` projects
-    /// into the specific parameter you want this widget to drive. The `Params` reference is only
-    /// used at construction time to resolve the opaque [`ParamPtr`]; widgets hold onto the pointer
-    /// and use signals from the editor's [`ParamRegistry`] for live values.
-    pub fn new<Params, P, FMap>(
-        _cx: &Context,
-        params: Arc<Params>,
-        params_to_param: FMap,
-    ) -> Self
-    where
-        Params: 'static,
-        P: Param,
-        FMap: Fn(&Params) -> &P,
-    {
-        let param_ptr = params_to_param(&params).as_ptr();
-        Self { param_ptr }
+    /// Parameter changes are handled by emitting [`ParamEvent`](super::ParamEvent)s, which are
+    /// automatically processed by the vizia-plug wrapper.
+    pub fn new<P: Param>(_cx: &Context, param: &P) -> Self {
+        Self { param_ptr: param.as_ptr() }
     }
 
     /// Create a view using the parameter's data. The `content` closure receives a
-    /// [`ParamWidgetData`] that gives access to static parameter metadata and to signals for
-    /// binding live values.
+    /// [`ParamWidgetData`] that gives typed access to the parameter (for static metadata) and
+    /// signals for binding live values.
     ///
-    /// SAFETY: The `&'static P` made available via [`ParamWidgetData::param`] does not actually
-    /// outlive the call — but in the vizia-plug setup the `&P` outlives the editor (the plugin's
-    /// `Params` struct is pinned for the plugin's lifetime). This mirrors the pre-signal API.
-    pub fn view<Params, P, FMap, F, R>(
-        cx: &mut Context,
-        params: Arc<Params>,
-        params_to_param: FMap,
-        content: F,
-    ) -> R
+    /// `param` only needs to outlive the call; the `'a` lifetime is carried through
+    /// [`ParamWidgetData`] so the builder closure can safely borrow it.
+    pub fn view<'a, P, F, R>(cx: &mut Context, param: &'a P, content: F) -> R
     where
-        Params: 'static,
         P: Param + 'static,
-        FMap: Fn(&Params) -> &P,
-        F: FnOnce(&mut Context, ParamWidgetData<P>) -> R,
+        F: FnOnce(&mut Context, ParamWidgetData<'a, P>) -> R,
     {
-        // SAFETY: see function docs.
-        let param_ref = params_to_param(&params);
-        let param_ptr = param_ref.as_ptr();
-        let param: &'static P = unsafe { &*(param_ref as *const P) };
-
-        let param_data = ParamWidgetData { param, param_ptr };
+        let param_data = ParamWidgetData { param, param_ptr: param.as_ptr() };
         content(cx, param_data)
     }
 
-    /// Shorthand for [`view`][Self::view] that returns a closure suitable for
+    /// Shorthand for [`view`](Self::view) that returns a builder closure suitable for
     /// [`View::build`](vizia::prelude::View::build).
-    pub fn build_view<Params, P, FMap, F, R>(
-        params: Arc<Params>,
-        params_to_param: FMap,
+    pub fn build_view<'a, P, F, R>(
+        param: &'a P,
         content: F,
-    ) -> impl FnOnce(&mut Context) -> R
+    ) -> impl FnOnce(&mut Context) -> R + 'a
     where
-        Params: 'static,
         P: Param + 'static,
-        FMap: Fn(&Params) -> &P + 'static,
-        F: FnOnce(&mut Context, ParamWidgetData<P>) -> R,
+        F: FnOnce(&mut Context, ParamWidgetData<'a, P>) -> R + 'a,
     {
-        move |cx| Self::view(cx, params, params_to_param, content)
+        move |cx| Self::view(cx, param, content)
     }
 
     /// Returns the signal tracking this widget's parameter on the given axis. Widgets can bind
-    /// view properties to this signal directly, or wrap it in a [`Memo`] for derived values.
+    /// view properties to this signal directly, or wrap it in a [`Memo`] for derived views.
     pub fn signal(&self, cx: &Context, axis: ParamAxis) -> SyncSignal<f32> {
         registry(cx).signal(self.param_ptr, axis)
     }
@@ -168,15 +146,15 @@ impl ParamWidgetBase {
         self.param_ptr
     }
 
-    /// Start an automation gesture. **Must** be called before [`set_normalized_value`][Self::set_normalized_value];
-    /// typically fired on mouse-down.
+    /// Start an automation gesture. **Must** be called before
+    /// [`set_normalized_value`](Self::set_normalized_value); typically fired on mouse-down.
     pub fn begin_set_parameter(&self, cx: &mut EventContext) {
         cx.emit(RawParamEvent::BeginSetParameter(self.param_ptr));
     }
 
     /// Set the normalised value for a parameter. Must be wrapped in matching
-    /// [`begin_set_parameter`][Self::begin_set_parameter] /
-    /// [`end_set_parameter`][Self::end_set_parameter] calls.
+    /// [`begin_set_parameter`](Self::begin_set_parameter) /
+    /// [`end_set_parameter`](Self::end_set_parameter) calls.
     pub fn set_normalized_value(&self, cx: &mut EventContext, normalized_value: f32) {
         // Snap to the nearest plain value for stepped params.
         let plain_value = unsafe { self.param_ptr.preview_plain(normalized_value) };
@@ -213,7 +191,7 @@ impl ParamWidgetBase {
 
 /// Look up the [`ParamRegistry`] installed on the editor root. Panics (via
 /// [`Context::data`]'s own assertion) if no registry is found, which indicates the editor was
-/// not created via [`create_vizia_editor`][crate::create_vizia_editor].
+/// not created via [`create_vizia_editor`](crate::create_vizia_editor).
 fn registry(cx: &Context) -> &ParamRegistry {
     cx.data::<ParamRegistry>()
 }

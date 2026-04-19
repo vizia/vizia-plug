@@ -13,22 +13,18 @@ use vizia::prelude::*;
 
 use super::ViziaState;
 
+mod generic_ui;
 pub mod param_base;
 mod param_button;
 pub mod param_registry;
+mod param_slider;
+mod peak_meter;
 pub mod util;
 
-// SPIKE: generic_ui, param_slider, and peak_meter still reference the old Lens API and are
-// temporarily disabled while we validate the ParamWidgetBase signal port against a single
-// consumer (param_button). They will be ported in a follow-up once the base shape is confirmed.
-// mod generic_ui;
-// mod param_slider;
-// mod peak_meter;
-
+pub use generic_ui::GenericUi;
 pub use param_button::{ParamButton, ParamButtonExt};
-// pub use generic_ui::GenericUi;
-// pub use param_slider::{ParamSlider, ParamSliderExt, ParamSliderStyle};
-// pub use peak_meter::PeakMeter;
+pub use param_slider::{ParamSlider, ParamSliderExt, ParamSliderStyle};
+pub use peak_meter::PeakMeter;
 
 /// Register the default theme for the widgets exported by this module. This is automatically called
 /// for you when using [`create_vizia_editor()`][super::create_vizia_editor()].

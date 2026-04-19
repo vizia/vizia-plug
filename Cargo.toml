@@ -17,7 +17,23 @@ nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git" }
 vizia = { git = "https://github.com/vizia/vizia", rev = "b2f68a02094c2ba9e4f52553295aa350043fe3c1", default-features = false, features = ["baseview", "clipboard", "x11"] }
 # vizia = { path = "../vizia", default_features = false, features = ["baseview", "clipboard", "x11"] }
 
+# Direct dependency on `vizia_reactive` so the editor can call
+# `Runtime::drain_pending_work()` as a belt-and-suspenders against
+# `vizia_baseview`'s missing sync-runtime integration. Same rev as the `vizia`
+# umbrella above — resolves to the same crate in the dep graph.
+#
+# TODO: drop this dep once vizia re-exports `Runtime` from `vizia::prelude`
+# AND `vizia_baseview`'s `on_frame_update` calls `Runtime::drain_pending_work()`
+# itself (matching what `vizia_winit` already does). Tracked in the companion
+# vizia PR — see CHANGELOG / PR description for the link.
+vizia_reactive = { git = "https://github.com/vizia/vizia", rev = "b2f68a02094c2ba9e4f52553295aa350043fe3c1", default-features = false }
+
 crossbeam = "0.8"
+# Used by `ParamRegistry` for its signal map — flushing happens from the host /
+# audio thread, and `parking_lot::Mutex` avoids the priority-inversion and
+# poisoning overhead of `std::sync::Mutex` if the UI thread happens to hold the
+# lock during widget construction when a parameter change arrives.
+parking_lot = "0.12"
 # To make the state persistable
 serde = { version = "1.0", features = ["derive"] }
 
