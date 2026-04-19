@@ -14,8 +14,6 @@ use crate::widgets::param_registry::ParamRegistry;
 use crate::widgets::RawParamEvent;
 use crate::{widgets, ViziaState, ViziaTheming};
 
-pub const NOTO_SANS: &str = "Noto Sans";
-
 /// An [`Editor`] implementation that calls a vizia draw loop.
 pub(crate) struct ViziaEditor {
     pub(crate) vizia_state: Arc<ViziaState>,
@@ -60,7 +58,10 @@ impl Editor for ViziaEditor {
         let mut application = Application::new(move |cx| {
             // Set some default styles to match the iced integration
             //if theming >= ViziaTheming::Custom {
-                cx.set_default_font(&[NOTO_SANS]);
+                // NOTE: `Context::set_default_font` was removed upstream as a deprecated API
+                // (vizia commit ff943a0b, "Context: remove deprecated APIs and clarify docs").
+                // The default font is now controlled through stylesheets — `theme.css` below
+                // can set `* { font-family: ...; }` if a specific font is required.
                 if let Err(err) = cx.add_stylesheet(include_style!("src/assets/theme.css")) {
                     nih_error!("Failed to load stylesheet: {err:?}");
                     panic!();

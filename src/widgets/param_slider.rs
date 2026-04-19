@@ -259,7 +259,7 @@ impl ParamSlider {
                         let preview = param_base
                             .normalized_value_to_string(normalized_value, true);
 
-                        Label::new(cx, &preview)
+                        Label::new(cx, preview)
                             .class("value")
                             .class("value--multiple")
                             .alignment(Alignment::Center)
@@ -276,7 +276,7 @@ impl ParamSlider {
                     // If the label override is set, use it. Otherwise show the parameter's
                     // current display value (before modulation).
                     match label_override.get() {
-                        Some(label) => Label::new(cx, &label),
+                        Some(label) => Label::new(cx, label),
                         None => Label::new(cx, display_value),
                     }
                     .class("value")

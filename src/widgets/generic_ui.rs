@@ -36,7 +36,9 @@ impl GenericUi {
         Self::new_custom(cx, params, move |cx, param_ptr| {
             HStack::new(cx, |cx| {
                 // Align this on the right
-                Label::new(cx, unsafe { param_ptr.name() }).class("label");
+                // `Label::new` takes `impl Res<T> + 'static` — `param_ptr.name()` returns
+                // a borrowed `&str`, so we own it here for the static-lifetime bound.
+                Label::new(cx, unsafe { param_ptr.name() }.to_owned()).class("label");
 
                 Self::draw_widget(cx, param_ptr);
             })

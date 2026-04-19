@@ -105,7 +105,7 @@ impl PeakMeter {
                                 .class("ticks__label")
                                 .class("ticks__label--dbfs")
                         } else {
-                            Label::new(cx, &tick_db.to_string()).class("ticks__label")
+                            Label::new(cx, tick_db.to_string()).class("ticks__label")
                         };
                     })
                     .width(Auto)

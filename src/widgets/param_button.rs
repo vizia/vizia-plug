@@ -54,7 +54,7 @@ impl ParamButton {
                 let param_name = param_data.param().name().to_owned();
                 Binding::new(cx, label_override, move |cx| {
                     let text = label_override.get().unwrap_or_else(|| param_name.clone());
-                    Label::new(cx, &text).hoverable(false);
+                    Label::new(cx, text).hoverable(false);
                 });
             }),
         )
