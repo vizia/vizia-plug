@@ -93,6 +93,23 @@ impl ParamWidgetBase {
     ///
     /// Parameter changes are handled by emitting [`ParamEvent`](super::ParamEvent)s, which are
     /// automatically processed by the vizia-plug wrapper.
+    ///
+    /// # Wrapping `ParamWidgetBase` in a custom widget
+    ///
+    /// A consumer widget that wraps `ParamWidgetBase` in its own generic constructor needs to
+    /// spell out the `'p: 'c` bound (the parameter borrow must outlive the context borrow):
+    ///
+    /// ```ignore
+    /// pub fn new<'c, 'p, P>(cx: &'c mut Context, param: &'p P) -> Handle<'c, Self>
+    /// where
+    ///     'p: 'c,
+    ///     P: Param + 'static,
+    /// {
+    ///     let param_base = ParamWidgetBase::new(cx, param);
+    ///     // ... build the view tree, pass `param` through to any nested
+    ///     // `ParamWidgetBase::view` / `build_view` calls ...
+    /// }
+    /// ```
     pub fn new<P: Param>(_cx: &Context, param: &P) -> Self {
         Self { param_ptr: param.as_ptr() }
     }
