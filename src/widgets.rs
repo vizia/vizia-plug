@@ -16,6 +16,7 @@ use super::ViziaState;
 mod generic_ui;
 pub mod param_base;
 mod param_button;
+pub mod param_registry;
 mod param_slider;
 mod peak_meter;
 pub mod util;
@@ -114,7 +115,6 @@ pub(crate) struct ParamModel {
 
 /// Handles interactions through `WindowEvent` for VIZIA GUIs by updating the `ViziaState`.
 /// Registered in [`ViziaEditor::spawn()`][super::ViziaEditor::spawn()].
-#[derive(Lens)]
 pub(crate) struct WindowModel {
     pub context: Arc<dyn GuiContext>,
     pub vizia_state: Arc<ViziaState>,

@@ -8,10 +8,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use vizia::prelude::*;
 
+use vizia_reactive::Runtime;
+
+use crate::widgets::param_registry::ParamRegistry;
 use crate::widgets::RawParamEvent;
 use crate::{widgets, ViziaState, ViziaTheming};
-
-pub const NOTO_SANS: &str = "Noto Sans";
 
 /// An [`Editor`] implementation that calls a vizia draw loop.
 pub(crate) struct ViziaEditor {
@@ -31,6 +32,12 @@ pub(crate) struct ViziaEditor {
     /// to compute a property in an event handler. Like when positioning an element based on the
     /// display value's width.
     pub(crate) emit_parameters_changed_event: Arc<AtomicBool>,
+
+    /// Shared registry of `SyncSignal<f32>`s tracking each parameter's live value. Widgets
+    /// subscribe via `cx.data::<ParamRegistry>()`; the editor calls `flush_all()` from the
+    /// `parameter_value_changed` / `parameter_values_changed` hooks so the reactive graph picks
+    /// up value changes that nih-plug reports.
+    pub(crate) param_registry: ParamRegistry,
 }
 
 impl Editor for ViziaEditor {
@@ -42,6 +49,7 @@ impl Editor for ViziaEditor {
         let app = self.app.clone();
         let vizia_state = self.vizia_state.clone();
         let theming = self.theming;
+        let param_registry = self.param_registry.clone();
 
         let (unscaled_width, unscaled_height) = vizia_state.inner_logical_size();
         let system_scaling_factor = self.scaling_factor.load();
@@ -50,7 +58,10 @@ impl Editor for ViziaEditor {
         let mut application = Application::new(move |cx| {
             // Set some default styles to match the iced integration
             //if theming >= ViziaTheming::Custom {
-                cx.set_default_font(&[NOTO_SANS]);
+                // NOTE: `Context::set_default_font` was removed upstream as a deprecated API
+                // (vizia commit ff943a0b, "Context: remove deprecated APIs and clarify docs").
+                // The default font is now controlled through stylesheets — `theme.css` below
+                // can set `* { font-family: ...; }` if a specific font is required.
                 if let Err(err) = cx.add_stylesheet(include_style!("src/assets/theme.css")) {
                     nih_error!("Failed to load stylesheet: {err:?}");
                     panic!();
@@ -60,6 +71,11 @@ impl Editor for ViziaEditor {
                 // include the style sheet for our custom widgets at context creation
                 widgets::register_theme(cx);
             //}
+
+            // Install the parameter signal registry so widgets can find it via
+            // `cx.data::<ParamRegistry>()`. `ParamRegistry` is a cheap handle (Arc internally),
+            // so the editor keeps a clone for flushing on parameter changes.
+            param_registry.clone().build(cx);
 
             // Any widget can change the parameters by emitting `ParamEvent` events. This model will
             // handle them automatically.
@@ -89,21 +105,37 @@ impl Editor for ViziaEditor {
                 .unwrap_or(WindowScalePolicy::SystemScaleFactor),
         )
         .inner_size((unscaled_width, unscaled_height))
-        .user_scale_factor(user_scale_factor);
-        // .on_idle({
-        //     let emit_parameters_changed_event = self.emit_parameters_changed_event.clone();
-        //     move |cx| {
-        //         if emit_parameters_changed_event
-        //             .compare_exchange(true, false, Ordering::AcqRel, Ordering::Relaxed)
-        //             .is_ok()
-        //         {
-        //             cx.emit_custom(
-        //                 Event::new(RawParamEvent::ParametersChanged)
-        //                     .propagate(Propagation::Subtree),
-        //             );
-        //         }
-        //     }
-        // });
+        .user_scale_factor(user_scale_factor)
+        .on_idle({
+            let emit_parameters_changed_event = self.emit_parameters_changed_event.clone();
+            move |cx| {
+                // Drain effects queued in `SYNC_RUNTIME` by off-UI-thread signal writes (our
+                // `ParamRegistry::flush_all()` runs on nih-plug's parameter-change callback,
+                // which is typically the host / audio thread). This ensures `Binding::new`
+                // subscribers get their rebuild-on-change notifications processed.
+                //
+                // Belt-and-suspenders: `vizia_baseview` should ideally call
+                // `Runtime::drain_pending_work()` from its own `on_frame_update` (matching
+                // what `vizia_winit` already does), in which case this call here becomes a
+                // redundant no-op. Until that lands upstream, this guarantees that
+                // vizia-plug-backed plugins see reactive updates with at most one event-loop
+                // tick of latency.
+                //
+                // TODO: remove once `vizia_baseview` integrates the sync runtime itself.
+                // Tracked by the companion vizia PR — see the vizia-plug PR description.
+                Runtime::drain_pending_work();
+
+                if emit_parameters_changed_event
+                    .compare_exchange(true, false, Ordering::AcqRel, Ordering::Relaxed)
+                    .is_ok()
+                {
+                    cx.emit_custom(
+                        Event::new(RawParamEvent::ParametersChanged)
+                            .propagate(Propagation::Subtree),
+                    );
+                }
+            }
+        });
 
         // This way the plugin can decide to use none of the built in theming
         if theming == ViziaTheming::None {
@@ -139,19 +171,22 @@ impl Editor for ViziaEditor {
     }
 
     fn param_value_changed(&self, _id: &str, _normalized_value: f32) {
-        // This will cause a future idle callback to send a parameters changed event.
-        // NOTE: We could add an event containing the parameter's ID and the normalized value, but
-        //       these events aren't really necessary for Vizia.
+        // Push the new value into the registry's signals — observers bound via `Binding::new`
+        // wake up and rebuild. Also flag a `ParametersChanged` idle event for any widgets that
+        // still rely on the older (pre-signal) notification path.
+        self.param_registry.flush_all();
         self.emit_parameters_changed_event
             .store(true, Ordering::Relaxed);
     }
 
     fn param_modulation_changed(&self, _id: &str, _modulation_offset: f32) {
+        self.param_registry.flush_all();
         self.emit_parameters_changed_event
             .store(true, Ordering::Relaxed);
     }
 
     fn param_values_changed(&self) {
+        self.param_registry.flush_all();
         self.emit_parameters_changed_event
             .store(true, Ordering::Relaxed);
     }

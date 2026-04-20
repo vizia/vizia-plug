@@ -18,6 +18,8 @@ pub use vizia;
 mod editor;
 pub mod widgets;
 
+use widgets::param_registry::ParamRegistry;
+
 /// Create an [`Editor`] instance using a [`vizia`][::vizia] GUI. The [`ViziaState`] passed to this
 /// function contains the GUI's intitial size, and this is kept in sync whenever the GUI gets
 /// resized. You can also use this to know if the GUI is open, so you can avoid performing
@@ -61,6 +63,7 @@ where
         scaling_factor: AtomicCell::new(Some(1.0)),
 
         emit_parameters_changed_event: Arc::new(AtomicBool::new(false)),
+        param_registry: ParamRegistry::new(),
     }))
 }
 
