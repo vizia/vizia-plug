@@ -63,7 +63,9 @@ impl ParamRegistry {
     /// Creates an empty registry.
     pub fn new() -> Self {
         Self {
-            inner: Arc::new(ParamRegistryInner { signals: Mutex::new(HashMap::new()) }),
+            inner: Arc::new(ParamRegistryInner {
+                signals: Mutex::new(HashMap::new()),
+            }),
         }
     }
 
@@ -96,8 +98,10 @@ impl ParamRegistry {
     }
 
     /// Re-read every registered parameter via unsafe `ParamPtr` and write the current value
-    /// into its signal. Intended to be called from the editor's `parameter_value_changed` /
-    /// `parameter_values_changed` hooks; the reactive graph then notifies any bound widgets.
+    /// into its signal. Intended to be called from the editor's
+    /// [`parameter_values_changed`](nih_plug::prelude::Editor::parameter_values_changed) hook
+    /// (which reports "something moved but we don't know what") so every widget catches up
+    /// in one sweep.
     pub fn flush_all(&self) {
         let signals = self.inner.signals.lock();
 
@@ -110,6 +114,32 @@ impl ParamRegistry {
                 }
             };
             signal.set_if_changed(current);
+        }
+    }
+
+    /// Re-read a single parameter via unsafe `ParamPtr` and write its current value into each
+    /// of its registered axis signals (modulated + unmodulated). Intended to be called from
+    /// the editor's
+    /// [`parameter_value_changed`](nih_plug::prelude::Editor::parameter_value_changed) /
+    /// [`parameter_modulation_changed`](nih_plug::prelude::Editor::parameter_modulation_changed)
+    /// hooks — both of which report the specific parameter that moved — so a single-parameter
+    /// change doesn't iterate every signal in the registry.
+    ///
+    /// Axes with no signal registered for this parameter are silently skipped.
+    pub fn flush_one(&self, param_ptr: ParamPtr) {
+        let signals = self.inner.signals.lock();
+
+        for axis in [ParamAxis::Modulated, ParamAxis::Unmodulated] {
+            if let Some(signal) = signals.get(&(param_ptr, axis)) {
+                // SAFETY: see `signal()`.
+                let current = unsafe {
+                    match axis {
+                        ParamAxis::Modulated => param_ptr.modulated_normalized_value(),
+                        ParamAxis::Unmodulated => param_ptr.unmodulated_normalized_value(),
+                    }
+                };
+                signal.set_if_changed(current);
+            }
         }
     }
 }
