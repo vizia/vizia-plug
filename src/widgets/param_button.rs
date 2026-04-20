@@ -27,12 +27,6 @@ pub struct ParamButton {
 impl ParamButton {
     /// Creates a new [`ParamButton`] for the given parameter. Pass a reference to the
     /// parameter directly — e.g. `ParamButton::new(cx, &params.my_toggle)`.
-    ///
-    /// The `'p: 'c` bound reads as "the parameter must outlive the context borrow": the
-    /// builder closure captured into `cx` borrows `param` to resolve static metadata, so the
-    /// parameter's storage (normally inside the plugin's `Arc<Params>`) has to stay alive at
-    /// least as long as the widget is being built. In practice this is always true — `Params`
-    /// lives for the plugin's lifetime — the bound just lets the borrow checker prove it.
     pub fn new<'c, 'p, P>(cx: &'c mut Context, param: &'p P) -> Handle<'c, Self>
     where
         'p: 'c,
@@ -52,10 +46,13 @@ impl ParamButton {
             cx,
             ParamWidgetBase::build_view(param, move |cx, param_data| {
                 let param_name = param_data.param().name().to_owned();
-                Binding::new(cx, label_override, move |cx| {
-                    let text = label_override.get().unwrap_or_else(|| param_name.clone());
-                    Label::new(cx, text).hoverable(false);
-                });
+                // Derived label text: either the `.with_label(...)` override when set, or the
+                // parameter's own name. Built as a `Memo<String>` so the Label updates its
+                // text in place when the override changes — cheaper than rebuilding the view
+                // subtree via `Binding::new`.
+                let text: Memo<String> =
+                    Memo::new(move |_| label_override.get().unwrap_or_else(|| param_name.clone()));
+                Label::new(cx, text).hoverable(false);
             }),
         )
         // `:checked` pseudo-class when the button is on. Uses modulated value — there's no
