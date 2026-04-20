@@ -82,12 +82,6 @@ impl ParamSlider {
     /// Parameter changes are handled by emitting [`ParamEvent`](super::ParamEvent)s, which
     /// are automatically processed by the vizia-plug wrapper.
     ///
-    /// The `'p: 'c` bound reads as "the parameter must outlive the context borrow": the
-    /// builder closure captured into `cx` borrows `param` to resolve static metadata, so the
-    /// parameter's storage (normally inside the plugin's `Arc<Params>`) has to stay alive at
-    /// least as long as the widget is being built. In practice this is always true — `Params`
-    /// lives for the plugin's lifetime — the bound just lets the borrow checker prove it.
-    ///
     /// See [`ParamSliderExt`] for additional options.
     pub fn new<'c, 'p, P>(cx: &'c mut Context, param: &'p P) -> Handle<'c, Self>
     where
@@ -256,8 +250,7 @@ impl ParamSlider {
                     // here rather than threading it through the reactive graph.
                     for value in 0..step_count + 1 {
                         let normalized_value = value as f32 / step_count as f32;
-                        let preview = param_base
-                            .normalized_value_to_string(normalized_value, true);
+                        let preview = param_base.normalized_value_to_string(normalized_value, true);
 
                         Label::new(cx, preview)
                             .class("value")
@@ -272,19 +265,18 @@ impl ParamSlider {
                 .hoverable(false);
             }
             _ => {
-                Binding::new(cx, label_override, move |cx| {
-                    // If the label override is set, use it. Otherwise show the parameter's
-                    // current display value (before modulation).
-                    match label_override.get() {
-                        Some(label) => Label::new(cx, label),
-                        None => Label::new(cx, display_value),
-                    }
+                // Derived label text: either the `.with_label(...)` override when set, or the
+                // parameter's own formatted display value (before modulation). Built as a
+                // `Memo<String>` so the Label updates its text in place when either input
+                // changes — cheaper than rebuilding the view subtree via `Binding::new`.
+                let text: Memo<String> =
+                    Memo::new(move |_| label_override.get().unwrap_or_else(|| display_value.get()));
+                Label::new(cx, text)
                     .class("value")
                     .class("value--single")
                     .alignment(Alignment::Center)
                     .size(Stretch(1.0))
                     .hoverable(false);
-                });
             }
         }
     }
@@ -401,9 +393,7 @@ impl View for ParamSlider {
                 meta.consume();
             }
             ParamSliderEvent::TextInput(string) => {
-                if let Some(normalized_value) =
-                    self.param_base.string_to_normalized_value(string)
-                {
+                if let Some(normalized_value) = self.param_base.string_to_normalized_value(string) {
                     self.param_base.begin_set_parameter(cx);
                     self.param_base.set_normalized_value(cx, normalized_value);
                     self.param_base.end_set_parameter(cx);
@@ -487,20 +477,16 @@ impl View for ParamSlider {
                     // If shift is held, dragging is granular rather than absolute.
                     if cx.modifiers().shift() {
                         let granular_drag_status =
-                            *self.granular_drag_status.get_or_insert_with(|| {
-                                GranularDragStatus {
+                            *self
+                                .granular_drag_status
+                                .get_or_insert_with(|| GranularDragStatus {
                                     starting_x_coordinate: *x,
-                                    starting_value: self
-                                        .param_base
-                                        .unmodulated_normalized_value(),
-                                }
-                            });
+                                    starting_value: self.param_base.unmodulated_normalized_value(),
+                                });
 
                         // Compensate for the DPI scale to keep the drag consistent.
-                        let start_x = util::remap_current_entity_x_t(
-                            cx,
-                            granular_drag_status.starting_value,
-                        );
+                        let start_x =
+                            util::remap_current_entity_x_t(cx, granular_drag_status.starting_value);
                         let delta_x = ((*x - granular_drag_status.starting_x_coordinate)
                             * GRANULAR_DRAG_MULTIPLIER)
                             * cx.scale_factor();
