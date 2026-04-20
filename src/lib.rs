@@ -64,6 +64,7 @@ where
 
         emit_parameters_changed_event: Arc::new(AtomicBool::new(false)),
         param_registry: ParamRegistry::new(),
+        key_inject: editor::KeyInjectState::new(),
     }))
 }
 
