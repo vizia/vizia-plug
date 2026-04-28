@@ -1,6 +1,5 @@
 //! The [`Editor`] trait implementation for Vizia editors.
 
-
 use crossbeam::atomic::AtomicCell;
 use nih_plug::debug::*;
 use nih_plug::prelude::{Editor, GuiContext, Modifiers, ParentWindowHandle, VirtualKeyCode};
@@ -12,9 +11,9 @@ use vizia::views::TextEvent;
 
 use vizia_reactive::Runtime;
 
-use crate::widgets::param_registry::ParamRegistry;
 use crate::widgets::RawParamEvent;
-use crate::{widgets, ViziaState, ViziaTheming};
+use crate::widgets::param_registry::ParamRegistry;
+use crate::{ViziaState, ViziaTheming, widgets};
 
 /// A key-down event queued by the host-thread
 /// `Editor::on_virtual_key_from_host` callback, waiting for the next
@@ -114,18 +113,18 @@ impl Editor for ViziaEditor {
         let mut application = Application::new(move |cx| {
             // Set some default styles to match the iced integration
             //if theming >= ViziaTheming::Custom {
-                // NOTE: `Context::set_default_font` was removed upstream as a deprecated API
-                // (vizia commit ff943a0b, "Context: remove deprecated APIs and clarify docs").
-                // The default font is now controlled through stylesheets — `theme.css` below
-                // can set `* { font-family: ...; }` if a specific font is required.
-                if let Err(err) = cx.add_stylesheet(include_style!("src/assets/theme.css")) {
-                    nih_error!("Failed to load stylesheet: {err:?}");
-                    panic!();
-                }
+            // NOTE: `Context::set_default_font` was removed upstream as a deprecated API
+            // (vizia commit ff943a0b, "Context: remove deprecated APIs and clarify docs").
+            // The default font is now controlled through stylesheets — `theme.css` below
+            // can set `* { font-family: ...; }` if a specific font is required.
+            if let Err(err) = cx.add_stylesheet(include_style!("src/assets/theme.css")) {
+                nih_error!("Failed to load stylesheet: {err:?}");
+                panic!();
+            }
 
-                // There doesn't seem to be any way to bundle styles with a widget, so we'll always
-                // include the style sheet for our custom widgets at context creation
-                widgets::register_theme(cx);
+            // There doesn't seem to be any way to bundle styles with a widget, so we'll always
+            // include the style sheet for our custom widgets at context creation
+            widgets::register_theme(cx);
             //}
 
             // Install the parameter signal registry so widgets can find it via
@@ -197,10 +196,9 @@ impl Editor for ViziaEditor {
                 // synchronously whether to claim a key. The element
                 // name `"textbox"` is set by
                 // `vizia::views::Textbox::element()`.
-                key_inject.text_focused.store(
-                    cx.focused_element() == Some("textbox"),
-                    Ordering::Release,
-                );
+                key_inject
+                    .text_focused
+                    .store(cx.focused_element() == Some("textbox"), Ordering::Release);
 
                 // Drain any keys queued by `on_virtual_key_from_host`
                 // and dispatch them to the focused view. Buffered
@@ -216,10 +214,7 @@ impl Editor for ViziaEditor {
                 // key handler (e.g. textbox's `KeyDown` match arm)
                 // runs.
                 let drained: Vec<KeyInject> = {
-                    let mut q = key_inject
-                        .pending
-                        .lock()
-                        .unwrap_or_else(|e| e.into_inner());
+                    let mut q = key_inject.pending.lock().unwrap_or_else(|e| e.into_inner());
                     q.drain(..).collect()
                 };
                 if !drained.is_empty() {
