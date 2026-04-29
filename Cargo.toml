@@ -14,7 +14,7 @@ crate-type = ["cdylib", "lib"]
 
 [dependencies]
 nih_plug = { git = "https://github.com/BillyDM/nih-plug.git" }
-vizia = { git = "https://github.com/vizia/vizia", rev = "23e34039", default-features = false, features = ["baseview", "clipboard", "x11"] }
+vizia = { git = "https://github.com/vizia/vizia", rev = "3d04965d8f1eb555b04dd60ef3a76c06bfd0603b", default-features = false, features = ["baseview", "clipboard", "x11"] }
 # vizia = { path = "../vizia", default_features = false, features = ["baseview", "clipboard", "x11"] }
 
 # Direct dependency on `vizia_reactive` so the editor can call
