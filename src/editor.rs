@@ -9,8 +9,6 @@ use std::sync::{Arc, Mutex};
 use vizia::prelude::*;
 use vizia::views::TextEvent;
 
-use vizia_reactive::Runtime;
-
 use crate::widgets::RawParamEvent;
 use crate::widgets::param_registry::ParamRegistry;
 use crate::{ViziaState, ViziaTheming, widgets};
@@ -165,22 +163,6 @@ impl Editor for ViziaEditor {
             let emit_parameters_changed_event = self.emit_parameters_changed_event.clone();
             let key_inject = self.key_inject.clone();
             move |cx| {
-                // Drain effects queued in `SYNC_RUNTIME` by off-UI-thread signal writes (our
-                // `ParamRegistry::flush_all()` runs on nih-plug's parameter-change callback,
-                // which is typically the host / audio thread). This ensures `Binding::new`
-                // subscribers get their rebuild-on-change notifications processed.
-                //
-                // Belt-and-suspenders: `vizia_baseview` should ideally call
-                // `Runtime::drain_pending_work()` from its own `on_frame_update` (matching
-                // what `vizia_winit` already does), in which case this call here becomes a
-                // redundant no-op. Until that lands upstream, this guarantees that
-                // vizia-plug-backed plugins see reactive updates with at most one event-loop
-                // tick of latency.
-                //
-                // TODO: remove once `vizia_baseview` integrates the sync runtime itself.
-                // Tracked by the companion vizia PR — see the vizia-plug PR description.
-                Runtime::drain_pending_work();
-
                 if emit_parameters_changed_event
                     .compare_exchange(true, false, Ordering::AcqRel, Ordering::Relaxed)
                     .is_ok()
