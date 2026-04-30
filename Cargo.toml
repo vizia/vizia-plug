@@ -14,19 +14,8 @@ crate-type = ["cdylib", "lib"]
 
 [dependencies]
 nih_plug = { git = "https://github.com/BillyDM/nih-plug.git" }
-vizia = { git = "https://github.com/vizia/vizia", rev = "23e34039", default-features = false, features = ["baseview", "clipboard", "x11"] }
+vizia = { git = "https://github.com/vizia/vizia", rev = "632527b7", default-features = false, features = ["baseview", "clipboard", "x11"] }
 # vizia = { path = "../vizia", default_features = false, features = ["baseview", "clipboard", "x11"] }
-
-# Direct dependency on `vizia_reactive` so the editor can call
-# `Runtime::drain_pending_work()` as a belt-and-suspenders against
-# `vizia_baseview`'s missing sync-runtime integration. Same rev as the `vizia`
-# umbrella above — resolves to the same crate in the dep graph.
-#
-# TODO: drop this dep once vizia re-exports `Runtime` from `vizia::prelude`
-# AND `vizia_baseview`'s `on_frame_update` calls `Runtime::drain_pending_work()`
-# itself (matching what `vizia_winit` already does). Tracked in the companion
-# vizia PR — see CHANGELOG / PR description for the link.
-vizia_reactive = { git = "https://github.com/vizia/vizia", rev = "23e34039", default-features = false }
 
 crossbeam = "0.8"
 # Used by `ParamRegistry` for its signal map — flushing happens from the host /
