@@ -183,6 +183,21 @@ impl ViziaState {
         self.scale_factor.load()
     }
 
+    /// Set the non-DPI related uniform scaling factor the GUI's size will be multiplied with.
+    ///
+    /// `Editor::size()` reads this via [`Self::scaled_logical_size`], so updating it before
+    /// calling [`nih_plug::context::gui::GuiContext::request_resize`] makes the host see the
+    /// freshly-zoomed dimensions and resize its parent window to match.
+    ///
+    /// On its own, this only changes what the host is told. To make the embedded vizia window
+    /// actually re-lay-out at the new scale, emit
+    /// [`vizia::prelude::WindowEvent::SetUserScale`] from the same handler. The
+    /// `vizia_baseview` backend handles that event by resizing the embedded window, bumping
+    /// `style.dpi_factor`, and refreshing the render surface in lockstep.
+    pub fn set_user_scale_factor(&self, factor: f64) {
+        self.scale_factor.store(factor);
+    }
+
     /// Whether the GUI is currently visible.
     // Called `is_open()` instead of `open()` to avoid the ambiguity.
     pub fn is_open(&self) -> bool {
