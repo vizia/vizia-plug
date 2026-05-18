@@ -1,5 +1,5 @@
 use atomic_float::AtomicF32;
-use nih_plug::prelude::*;
+use nice_plug::prelude::*;
 use vizia_plug::ViziaState;
 use std::sync::Arc;
 
@@ -175,5 +175,5 @@ impl Vst3Plugin for Gain {
         &[Vst3SubCategory::Fx, Vst3SubCategory::Tools];
 }
 
-nih_export_clap!(Gain);
-nih_export_vst3!(Gain);
+nice_export_clap!(Gain);
+nice_export_vst3!(Gain);

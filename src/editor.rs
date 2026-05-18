@@ -1,8 +1,8 @@
 //! The [`Editor`] trait implementation for Vizia editors.
 
 use crossbeam::atomic::AtomicCell;
-use nih_plug::debug::*;
-use nih_plug::prelude::{Editor, GuiContext, Modifiers, ParentWindowHandle, VirtualKeyCode};
+use nice_plug::debug::*;
+use nice_plug::prelude::{Editor, GuiContext, Modifiers, ParentWindowHandle, VirtualKeyCode};
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -84,7 +84,7 @@ pub(crate) struct ViziaEditor {
     /// Shared registry of `SyncSignal<f32>`s tracking each parameter's live value. Widgets
     /// subscribe via `cx.data::<ParamRegistry>()`; the editor calls `flush_all()` from the
     /// `parameter_value_changed` / `parameter_values_changed` hooks so the reactive graph picks
-    /// up value changes that nih-plug reports.
+    /// up value changes that nice-plug reports.
     pub(crate) param_registry: ParamRegistry,
 
     /// Shared state bridging the host-thread
@@ -378,7 +378,7 @@ impl Editor for ViziaEditor {
         // and the textbox's KeyDown handlers run on the press only. Push
         // the queued event on key-down; on key-up, just claim the event
         // so the host doesn't pick the release up as a separate
-        // accelerator (BillyDM's reasoning on nih-plug#9).
+        // accelerator (BillyDM's reasoning on nice-plug#9).
         if is_down {
             self.key_inject
                 .pending

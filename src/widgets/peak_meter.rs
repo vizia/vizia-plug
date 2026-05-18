@@ -1,6 +1,6 @@
 //! A super simple peak meter widget.
 
-use nih_plug::prelude::util;
+use nice_plug::prelude::util;
 use std::cell::Cell;
 use std::time::Duration;
 use std::time::Instant;

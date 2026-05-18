@@ -1,6 +1,6 @@
 //! A slider that integrates with NIH-plug's [`Param`] types.
 
-use nih_plug::prelude::{Param, ParamPtr};
+use nice_plug::prelude::{Param, ParamPtr};
 use vizia::prelude::*;
 
 use super::param_base::ParamWidgetBase;

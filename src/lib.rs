@@ -1,11 +1,11 @@
 //! [VIZIA](https://github.com/vizia/vizia) editor support for NIH plug.
 
-// See the comment in the main `nih_plug` crate
+// See the comment in the main `nice_plug` crate
 #![allow(clippy::type_complexity)]
 
 use crossbeam::atomic::AtomicCell;
-use nih_plug::params::persist::PersistentField;
-use nih_plug::prelude::{Editor, GuiContext};
+use nice_plug::params::persist::PersistentField;
+use nice_plug::prelude::{Editor, GuiContext};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -95,7 +95,7 @@ pub struct ViziaState {
     size_fn: Box<dyn Fn() -> (u32, u32) + Send + Sync>,
     /// A scale factor that should be applied to `size` separate from from any system HiDPI scaling.
     /// This can be used to allow GUIs to be scaled uniformly.
-    #[serde(with = "nih_plug::params::persist::serialize_atomic_cell")]
+    #[serde(with = "nice_plug::params::persist::serialize_atomic_cell")]
     scale_factor: AtomicCell<f64>,
     /// Whether the editor's window is currently open.
     #[serde(skip)]
@@ -186,7 +186,7 @@ impl ViziaState {
     /// Set the non-DPI related uniform scaling factor the GUI's size will be multiplied with.
     ///
     /// `Editor::size()` reads this via [`Self::scaled_logical_size`], so updating it before
-    /// calling [`nih_plug::context::gui::GuiContext::request_resize`] makes the host see the
+    /// calling [`nice_plug::context::gui::GuiContext::request_resize`] makes the host see the
     /// freshly-zoomed dimensions and resize its parent window to match.
     ///
     /// On its own, this only changes what the host is told. To make the embedded vizia window

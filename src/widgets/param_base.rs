@@ -1,6 +1,6 @@
 //! A base widget for creating other widgets that integrate with NIH-plug's [`Param`] types.
 
-use nih_plug::prelude::*;
+use nice_plug::prelude::*;
 use vizia::prelude::*;
 
 use super::param_registry::{ParamAxis, ParamRegistry};
