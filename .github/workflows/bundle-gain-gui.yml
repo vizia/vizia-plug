@@ -34,6 +34,13 @@ jobs:
             libasound2-dev \
             libgl1-mesa-dev \
             libx11-dev \
+            libx11-xcb-dev \
+            libxcursor-dev \
+            libxext-dev \
+            libxfixes-dev \
+            libxi-dev \
+            libxinerama-dev \
+            libxrandr-dev \
             pkg-config
 
       - name: Run bundle command
