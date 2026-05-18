@@ -11,7 +11,7 @@ description = "A simple gain plugin with an vizia GUI"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-nih_plug = { package = "nice-plug", git = "https://codeberg.org/BillyDM/nice-plug", features = ["standalone"] }
+nice-plug = { git = "https://codeberg.org/BillyDM/nice-plug", features = ["standalone"] }
 vizia_plug = { path = "../../" }
 
 atomic_float = "0.1"

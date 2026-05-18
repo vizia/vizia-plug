@@ -1,6 +1,6 @@
 //! Generic UIs for NIH-plug using VIZIA.
 
-use nih_plug::prelude::{ParamFlags, ParamPtr, Params};
+use nice_plug::prelude::{ParamFlags, ParamPtr, Params};
 use vizia::prelude::*;
 
 use super::{ParamSlider, ParamSliderExt, ParamSliderStyle};

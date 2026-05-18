@@ -1,12 +1,12 @@
 //! A toggleable button that integrates with NIH-plug's [`Param`] types.
 
-use nih_plug::prelude::Param;
+use nice_plug::prelude::Param;
 use vizia::prelude::*;
 
 use super::param_base::ParamWidgetBase;
 
 /// A toggleable button that integrates with NIH-plug's [`Param`] types. Only makes sense with
-/// [`BoolParam`][nih_plug::prelude::BoolParam]s. Clicking the button toggles between the
+/// [`BoolParam`][nice_plug::prelude::BoolParam]s. Clicking the button toggles between the
 /// parameter's minimum and maximum value. The `:checked` pseudoclass indicates whether the
 /// button is currently pressed.
 pub struct ParamButton {

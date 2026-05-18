@@ -6,8 +6,8 @@
 //! to copy the widgets and modify them to your personal taste.
 
 use crossbeam::atomic::AtomicCell;
-use nih_plug::debug::*;
-use nih_plug::prelude::{GuiContext, Param, ParamPtr};
+use nice_plug::debug::*;
+use nice_plug::prelude::{GuiContext, Param, ParamPtr};
 use std::sync::Arc;
 use vizia::prelude::*;
 
@@ -161,7 +161,7 @@ impl Model for WindowModel {
         //         let logical_size = (cx.window_size().width, cx.window_size().height);
         //         // `self.vizia_state.inner_logical_size()` should match `logical_size`. Since it's
         //         // computed we need to store the last logical size on this object.
-        //         nih_debug_assert_eq!(
+        //         nice_debug_assert_eq!(
         //             logical_size,
         //             self.vizia_state.inner_logical_size(),
         //             "The window size set on the vizia context does not match the size returned by \

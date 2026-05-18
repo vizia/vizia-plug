@@ -1,5 +1,5 @@
 use atomic_float::AtomicF32;
-use nih_plug::prelude::{util, Editor};
+use nice_plug::prelude::{util, Editor};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;

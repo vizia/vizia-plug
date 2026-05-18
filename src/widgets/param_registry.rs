@@ -1,7 +1,7 @@
-//! Bridge between nih-plug's pull-based [`Param`] model and vizia's push-based
+//! Bridge between nice-plug's pull-based [`Param`] model and vizia's push-based
 //! [`SyncSignal`] reactive graph.
 //!
-//! nih-plug exposes parameters through [`ParamPtr`] — stable opaque handles whose current
+//! nice-plug exposes parameters through [`ParamPtr`] — stable opaque handles whose current
 //! values are read on demand via unsafe accessors. vizia's new signal-based binding system
 //! (vizia#619) requires observable values to be wrapped in [`SyncSignal`] so the reactive
 //! graph can track dependencies and push updates to subscribers.
@@ -13,9 +13,9 @@
 //! access and reuses them on subsequent accesses.
 //!
 //! The editor side is responsible for flushing current values from [`ParamPtr`]s into the
-//! registry's signals whenever nih-plug reports a parameter change (via
-//! [`Editor::parameter_value_changed`](nih_plug::prelude::Editor::parameter_value_changed) /
-//! [`Editor::parameter_values_changed`](nih_plug::prelude::Editor::parameter_values_changed)).
+//! registry's signals whenever nice-plug reports a parameter change (via
+//! [`Editor::parameter_value_changed`](nice_plug::prelude::Editor::parameter_value_changed) /
+//! [`Editor::parameter_values_changed`](nice_plug::prelude::Editor::parameter_values_changed)).
 //! See [`ParamRegistry::flush_all`].
 //!
 //! The type is cheaply `Clone` (it's an `Arc` internally), so the editor can keep its own
@@ -24,11 +24,11 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use nih_plug::prelude::ParamPtr;
+use nice_plug::prelude::ParamPtr;
 use parking_lot::Mutex;
 use vizia::prelude::*;
 
-/// Which value of a parameter a signal tracks. nih-plug distinguishes between the raw
+/// Which value of a parameter a signal tracks. nice-plug distinguishes between the raw
 /// user/host-set value (*unmodulated*) and the value after any monophonic modulation has been
 /// applied (*modulated*). Most widgets want modulated — it's what the user sees driving the
 /// audio — but some (e.g. a slider that visualises both) want both.
@@ -52,7 +52,7 @@ struct ParamRegistryInner {
     /// Lazily populated map of `(ParamPtr, axis)` → signal.
     ///
     /// Locked briefly by widgets on construction (UI thread) and by the editor on every
-    /// parameter-change callback ([`flush_all`](ParamRegistry::flush_all), which nih-plug
+    /// parameter-change callback ([`flush_all`](ParamRegistry::flush_all), which nice-plug
     /// calls on the host / audio thread). Using `parking_lot::Mutex` rather than
     /// `std::sync::Mutex` keeps the audio-thread side light — no poisoning checks, no
     /// priority-inversion hazard if the UI thread is holding the lock during widget build.
@@ -99,7 +99,7 @@ impl ParamRegistry {
 
     /// Re-read every registered parameter via unsafe `ParamPtr` and write the current value
     /// into its signal. Intended to be called from the editor's
-    /// [`parameter_values_changed`](nih_plug::prelude::Editor::parameter_values_changed) hook
+    /// [`parameter_values_changed`](nice_plug::prelude::Editor::parameter_values_changed) hook
     /// (which reports "something moved but we don't know what") so every widget catches up
     /// in one sweep.
     pub fn flush_all(&self) {
@@ -120,8 +120,8 @@ impl ParamRegistry {
     /// Re-read a single parameter via unsafe `ParamPtr` and write its current value into each
     /// of its registered axis signals (modulated + unmodulated). Intended to be called from
     /// the editor's
-    /// [`parameter_value_changed`](nih_plug::prelude::Editor::parameter_value_changed) /
-    /// [`parameter_modulation_changed`](nih_plug::prelude::Editor::parameter_modulation_changed)
+    /// [`parameter_value_changed`](nice_plug::prelude::Editor::parameter_value_changed) /
+    /// [`parameter_modulation_changed`](nice_plug::prelude::Editor::parameter_modulation_changed)
     /// hooks — both of which report the specific parameter that moved — so a single-parameter
     /// change doesn't iterate every signal in the registry.
     ///
