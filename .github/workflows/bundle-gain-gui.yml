@@ -1,0 +1,30 @@
+name: Bundle gain_gui
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  bundle-gain-gui:
+    name: Bundle gain_gui (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+          - windows-latest
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install nightly Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Run bundle command
+        run: cargo +nightly xtask bundle gain_gui
