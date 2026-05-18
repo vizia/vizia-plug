@@ -116,7 +116,7 @@ impl Editor for ViziaEditor {
             // The default font is now controlled through stylesheets — `theme.css` below
             // can set `* { font-family: ...; }` if a specific font is required.
             if let Err(err) = cx.add_stylesheet(include_style!("src/assets/theme.css")) {
-                nih_error!("Failed to load stylesheet: {err:?}");
+                nice_error!("Failed to load stylesheet: {err:?}");
                 panic!();
             }
 

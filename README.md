@@ -1,8 +1,8 @@
 # Vizia Plug
 
-A replacement for `nih-plug-vizia` which updates it to the latest version of `vizia`.
+A replacement for the old `nih-plug-vizia` which updates it to the latest version of `vizia`.
 
-This crate allows for the use of the Vizia GUI library to be used with the nih-plug plugin framework.
+This crate allows for the use of the Vizia GUI library to be used with the [nice-plug](https://codeberg.org/BillyDM/nice-plug.git) (formerly NIH-plug) plugin framework.
 
 ## Building Examples
 

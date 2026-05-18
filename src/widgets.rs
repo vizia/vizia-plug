@@ -30,7 +30,7 @@ pub use peak_meter::PeakMeter;
 /// for you when using [`create_vizia_editor()`][super::create_vizia_editor()].
 pub fn register_theme(cx: &mut Context) {
     if let Err(err) = cx.add_stylesheet(include_style!("src/assets/widgets.css")) {
-        nih_error!("Failed to load stylesheet: {err:?}")
+        nice_error!("Failed to load stylesheet: {err:?}")
     }
 }
 
