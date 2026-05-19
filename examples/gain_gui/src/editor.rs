@@ -1,5 +1,7 @@
 use atomic_float::AtomicF32;
 use nice_plug::prelude::{util, Editor};
+use std::cell::Cell;
+use std::rc::Rc;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
@@ -33,12 +35,30 @@ pub(crate) fn create(
         // display.
         let level_dbfs: SyncSignal<f32> = SyncSignal::new(util::MINUS_INFINITY_DB);
         let poll_target = peak_meter.clone();
-        let timer = cx.add_timer(PEAK_METER_POLL_INTERVAL, None, move |_cx, reason| {
-            if matches!(reason, TimerAction::Tick(_)) {
-                let raw = poll_target.load(Ordering::Relaxed);
-                level_dbfs.set_if_changed(util::gain_to_db(raw));
-            }
-        });
+        // Use a self-restarting one-shot timer instead of an infinite timer. This avoids
+        // catch-up bursts when the host/UI thread is stalled, which can make plugin UIs appear
+        // to hang while processing a large backlog of overdue ticks.
+        let timer_handle: Rc<Cell<Option<Timer>>> = Rc::new(Cell::new(None));
+        let timer_handle_cb = timer_handle.clone();
+        let timer = cx.add_timer(
+            PEAK_METER_POLL_INTERVAL,
+            Some(PEAK_METER_POLL_INTERVAL),
+            move |cx, reason| match reason {
+                TimerAction::Tick(_) => {
+                    let raw = poll_target.load(Ordering::Relaxed);
+                    level_dbfs.set_if_changed(util::gain_to_db(raw));
+                }
+
+                TimerAction::Stop => {
+                    if let Some(timer) = timer_handle_cb.get() {
+                        cx.start_timer(timer);
+                    }
+                }
+
+                TimerAction::Start => {}
+            },
+        );
+        timer_handle.set(Some(timer));
         cx.start_timer(timer);
 
         VStack::new(cx, |cx| {
