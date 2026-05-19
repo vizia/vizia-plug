@@ -7,11 +7,38 @@ use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use vizia::prelude::*;
+use vizia_reactive::Scope;
 use vizia::views::TextEvent;
 
 use crate::widgets::RawParamEvent;
 use crate::widgets::param_registry::ParamRegistry;
 use crate::{ViziaState, ViziaTheming, widgets};
+
+/// Per-editor-instance reactive scope wrapper.
+///
+/// Any `Signal`/`SyncSignal` created while entering this scope is isolated from
+/// other plugin instances and can be cleaned up on editor close.
+#[derive(Clone, Copy)]
+struct InstanceSignalScope {
+    scope: Scope,
+}
+
+impl InstanceSignalScope {
+    fn new() -> Self {
+        Self { scope: Scope::new() }
+    }
+
+    fn enter<T>(&self, f: impl FnOnce() -> T) -> T
+    where
+        T: 'static,
+    {
+        self.scope.enter(f)
+    }
+
+    fn dispose(&self) {
+        self.scope.dispose();
+    }
+}
 
 /// A key-down event queued by the host-thread
 /// `Editor::on_virtual_key_from_host` callback, waiting for the next
@@ -103,54 +130,62 @@ impl Editor for ViziaEditor {
         let vizia_state = self.vizia_state.clone();
         let theming = self.theming;
         let param_registry = self.param_registry.clone();
+        let param_registry_for_build = param_registry.clone();
+
+        // Prevent stale runtime-bound signals from previous editor instances from being reused.
+        param_registry.clear_signals();
 
         let (unscaled_width, unscaled_height) = vizia_state.inner_logical_size();
         let system_scaling_factor = self.scaling_factor.load();
         let user_scale_factor = vizia_state.user_scale_factor();
+        let signal_scope = InstanceSignalScope::new();
 
         let mut application = Application::new(move |cx| {
-            // Set some default styles to match the iced integration
-            //if theming >= ViziaTheming::Custom {
-            // NOTE: `Context::set_default_font` was removed upstream as a deprecated API
-            // (vizia commit ff943a0b, "Context: remove deprecated APIs and clarify docs").
-            // The default font is now controlled through stylesheets — `theme.css` below
-            // can set `* { font-family: ...; }` if a specific font is required.
-            if let Err(err) = cx.add_stylesheet(include_style!("src/assets/theme.css")) {
-                nice_error!("Failed to load stylesheet: {err:?}");
-                panic!();
-            }
+            signal_scope.enter(|| {
+                // Set some default styles to match the iced integration
+                //if theming >= ViziaTheming::Custom {
+                // NOTE: `Context::set_default_font` was removed upstream as a deprecated API
+                // (vizia commit ff943a0b, "Context: remove deprecated APIs and clarify docs").
+                // The default font is now controlled through stylesheets — `theme.css` below
+                // can set `* { font-family: ...; }` if a specific font is required.
+                if let Err(err) = cx.add_stylesheet(include_style!("src/assets/theme.css")) {
+                    nice_error!("Failed to load stylesheet: {err:?}");
+                    panic!();
+                }
 
-            // There doesn't seem to be any way to bundle styles with a widget, so we'll always
-            // include the style sheet for our custom widgets at context creation
-            widgets::register_theme(cx);
-            //}
+                // There doesn't seem to be any way to bundle styles with a widget, so we'll always
+                // include the style sheet for our custom widgets at context creation
+                widgets::register_theme(cx);
+                //}
 
-            // Install the parameter signal registry so widgets can find it via
-            // `cx.data::<ParamRegistry>()`. `ParamRegistry` is a cheap handle (Arc internally),
-            // so the editor keeps a clone for flushing on parameter changes.
-            param_registry.clone().build(cx);
+                // Install the parameter signal registry so widgets can find it via
+                // `cx.data::<ParamRegistry>()`. `ParamRegistry` is a cheap handle (Arc internally),
+                // so the editor keeps a clone for flushing on parameter changes.
+                param_registry_for_build.clone().build(cx);
 
-            // Any widget can change the parameters by emitting `ParamEvent` events. This model will
-            // handle them automatically.
-            widgets::ParamModel {
-                context: context.clone(),
-            }
-            .build(cx);
+                // Any widget can change the parameters by emitting `ParamEvent` events. This model will
+                // handle them automatically.
+                widgets::ParamModel {
+                    context: context.clone(),
+                }
+                .build(cx);
 
-            // And we'll link `WindowEvent::ResizeWindow` and `WindowEvent::SetScale` events to our
-            // `ViziaState`. We'll notify the host when any of these change.
-            let current_inner_window_size = EventContext::new(cx).cache.get_bounds(Entity::root());
-            widgets::WindowModel {
-                context: context.clone(),
-                vizia_state: vizia_state.clone(),
-                last_inner_window_size: AtomicCell::new((
-                    current_inner_window_size.width() as u32,
-                    current_inner_window_size.height() as u32,
-                )),
-            }
-            .build(cx);
+                // And we'll link `WindowEvent::ResizeWindow` and `WindowEvent::SetScale` events to our
+                // `ViziaState`. We'll notify the host when any of these change.
+                let current_inner_window_size =
+                    EventContext::new(cx).cache.get_bounds(Entity::root());
+                widgets::WindowModel {
+                    context: context.clone(),
+                    vizia_state: vizia_state.clone(),
+                    last_inner_window_size: AtomicCell::new((
+                        current_inner_window_size.width() as u32,
+                        current_inner_window_size.height() as u32,
+                    )),
+                }
+                .build(cx);
 
-            app(cx, context.clone())
+                app(cx, context.clone())
+            })
         })
         .with_scale_policy(
             system_scaling_factor
@@ -227,6 +262,8 @@ impl Editor for ViziaEditor {
         Box::new(ViziaEditorHandle {
             vizia_state: self.vizia_state.clone(),
             window,
+            signal_scope,
+            param_registry,
         })
     }
 
@@ -394,6 +431,8 @@ impl Editor for ViziaEditor {
 struct ViziaEditorHandle {
     vizia_state: Arc<ViziaState>,
     window: WindowHandle,
+    signal_scope: InstanceSignalScope,
+    param_registry: ParamRegistry,
 }
 
 /// The window handle enum stored within 'WindowHandle' contains raw pointers. Is there a way around
@@ -405,5 +444,7 @@ impl Drop for ViziaEditorHandle {
         self.vizia_state.open.store(false, Ordering::Release);
         // XXX: This should automatically happen when the handle gets dropped, but apparently not
         self.window.close();
+        self.param_registry.clear_signals();
+        self.signal_scope.dispose();
     }
 }
