@@ -69,6 +69,14 @@ impl ParamRegistry {
         }
     }
 
+    /// Drop all cached signals.
+    ///
+    /// Signals are tied to the editor's reactive runtime. When an editor instance closes, those
+    /// runtime-owned signals become invalid and must not be reused after reopening.
+    pub fn clear_signals(&self) {
+        self.inner.signals.lock().clear();
+    }
+
     /// Returns the signal tracking `param_ptr`'s value on the given `axis`, creating it
     /// (initialised from the current unsafe `ParamPtr` value) if it does not yet exist.
     pub fn signal(&self, param_ptr: ParamPtr, axis: ParamAxis) -> SyncSignal<f32> {

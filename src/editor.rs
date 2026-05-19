@@ -130,6 +130,10 @@ impl Editor for ViziaEditor {
         let vizia_state = self.vizia_state.clone();
         let theming = self.theming;
         let param_registry = self.param_registry.clone();
+        let param_registry_for_build = param_registry.clone();
+
+        // Prevent stale runtime-bound signals from previous editor instances from being reused.
+        param_registry.clear_signals();
 
         let (unscaled_width, unscaled_height) = vizia_state.inner_logical_size();
         let system_scaling_factor = self.scaling_factor.load();
@@ -157,7 +161,7 @@ impl Editor for ViziaEditor {
                 // Install the parameter signal registry so widgets can find it via
                 // `cx.data::<ParamRegistry>()`. `ParamRegistry` is a cheap handle (Arc internally),
                 // so the editor keeps a clone for flushing on parameter changes.
-                param_registry.clone().build(cx);
+                param_registry_for_build.clone().build(cx);
 
                 // Any widget can change the parameters by emitting `ParamEvent` events. This model will
                 // handle them automatically.
@@ -259,6 +263,7 @@ impl Editor for ViziaEditor {
             vizia_state: self.vizia_state.clone(),
             window,
             signal_scope,
+            param_registry,
         })
     }
 
@@ -427,6 +432,7 @@ struct ViziaEditorHandle {
     vizia_state: Arc<ViziaState>,
     window: WindowHandle,
     signal_scope: InstanceSignalScope,
+    param_registry: ParamRegistry,
 }
 
 /// The window handle enum stored within 'WindowHandle' contains raw pointers. Is there a way around
@@ -438,6 +444,7 @@ impl Drop for ViziaEditorHandle {
         self.vizia_state.open.store(false, Ordering::Release);
         // XXX: This should automatically happen when the handle gets dropped, but apparently not
         self.window.close();
+        self.param_registry.clear_signals();
         self.signal_scope.dispose();
     }
 }
