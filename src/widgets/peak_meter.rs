@@ -2,6 +2,7 @@
 
 use nice_plug::prelude::util;
 use std::cell::Cell;
+use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 use vizia::prelude::*;
@@ -24,6 +25,8 @@ const TEXT_TICKS: [i32; 6] = [-80, -60, -40, -20, 0, 12];
 /// itself isn't updating (e.g. the source has gone silent). 20 Hz is fast enough to feel
 /// responsive at typical hold times (~600 ms) and cheap enough to ignore.
 const DECAY_TICK_INTERVAL: Duration = Duration::from_millis(50);
+/// Repaint interval for meters backed by an external getter instead of a signal.
+const GETTER_REPAINT_INTERVAL: Duration = Duration::from_millis(20);
 
 /// A simple horizontal peak meter.
 ///
@@ -38,10 +41,15 @@ pub struct PeakMeter;
 /// computation lives in [`View::draw`] so it runs off a wall clock — that way the held peak
 /// decays after `hold_time` even when the source signal stops updating (e.g. silent audio).
 struct PeakMeterBar {
-    level_dbfs: SyncSignal<f32>,
+    level_source: LevelSource,
     hold_time: Option<Duration>,
     held_peak_dbfs: Cell<f32>,
     last_held_at: Cell<Option<Instant>>,
+}
+
+enum LevelSource {
+    Signal(SyncSignal<f32>),
+    Getter(Arc<dyn Fn() -> f32 + Send + Sync>),
 }
 
 impl PeakMeter {
@@ -61,7 +69,7 @@ impl PeakMeter {
             // redraws, so we explicitly bind to `level_dbfs` for the "level changed →
             // repaint" path.
             let bar = PeakMeterBar {
-                level_dbfs,
+                level_source: LevelSource::Signal(level_dbfs),
                 hold_time,
                 held_peak_dbfs: Cell::new(f32::MIN),
                 last_held_at: Cell::new(None),
@@ -119,6 +127,68 @@ impl PeakMeter {
             .class("ticks");
         })
     }
+
+    /// Creates a new [`PeakMeter`] with a closure that returns the current dBFS value.
+    ///
+    /// This is useful when the source lives outside Vizia's reactive graph (for instance,
+    /// an `Arc<AtomicF32>` written by the audio thread). The widget repaints itself on a
+    /// lightweight timer and reads from the getter during `draw()`.
+    pub fn new_with_getter(
+        cx: &mut Context,
+        level_dbfs_getter: impl Fn() -> f32 + Send + Sync + 'static,
+        hold_time: Option<Duration>,
+    ) -> Handle<'_, Self> {
+        Self.build(cx, move |cx| {
+            let bar = PeakMeterBar {
+                level_source: LevelSource::Getter(Arc::new(level_dbfs_getter)),
+                hold_time,
+                held_peak_dbfs: Cell::new(f32::MIN),
+                last_held_at: Cell::new(None),
+            }
+            .build(cx, |_| {})
+            .class("bar");
+
+            let bar_entity = bar.entity();
+            let repaint_timer = cx.add_timer(GETTER_REPAINT_INTERVAL, None, move |cx, action| {
+                if matches!(action, TimerAction::Tick(_)) {
+                    cx.with_current(bar_entity, |cx| cx.needs_redraw());
+                }
+            });
+            cx.start_timer(repaint_timer);
+
+            HStack::new(cx, |cx| {
+                for tick_db in TEXT_TICKS {
+                    let first_tick = tick_db == TEXT_TICKS[0];
+                    let last_tick = tick_db == TEXT_TICKS[TEXT_TICKS.len() - 1];
+                    VStack::new(cx, |cx| {
+                        if !last_tick {
+                            Element::new(cx).class("ticks__tick");
+                        }
+
+                        if first_tick {
+                            Label::new(cx, "-inf")
+                                .class("ticks__label")
+                                .class("ticks__label--inf")
+                        } else if last_tick {
+                            // Only in the array to make positioning easier.
+                            Label::new(cx, "dBFS")
+                                .class("ticks__label")
+                                .class("ticks__label--dbfs")
+                        } else {
+                            Label::new(cx, tick_db.to_string()).class("ticks__label")
+                        };
+                    })
+                    .width(Auto)
+                    .alignment(Alignment::TopCenter);
+
+                    if !last_tick {
+                        Spacer::new(cx);
+                    }
+                }
+            })
+            .class("ticks");
+        })
+    }
 }
 
 impl View for PeakMeter {
@@ -128,6 +198,13 @@ impl View for PeakMeter {
 }
 
 impl PeakMeterBar {
+    fn current_level_dbfs(&self) -> f32 {
+        match &self.level_source {
+            LevelSource::Signal(level_dbfs) => level_dbfs.get(),
+            LevelSource::Getter(level_dbfs_getter) => level_dbfs_getter(),
+        }
+    }
+
     /// Compute the current hold-peak dBFS value. Called from `draw()` — runs on the UI
     /// thread, uses wall-clock time, mutates the `Cell` state in place.
     fn update_held_peak(&self, current_level_dbfs: f32) -> f32 {
@@ -160,7 +237,7 @@ impl View for PeakMeterBar {
     }
 
     fn draw(&self, cx: &mut DrawContext, canvas: &Canvas) {
-        let level_dbfs = self.level_dbfs.get();
+        let level_dbfs = self.current_level_dbfs();
         let peak_dbfs = self.update_held_peak(level_dbfs);
 
         // These basics are taken directly from the default implementation of this function.

@@ -1,8 +1,5 @@
 use atomic_float::AtomicF32;
 use nice_plug::prelude::{util, Editor};
-use std::cell::Cell;
-use std::rc::Rc;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
 use vizia_plug::vizia::prelude::*;
@@ -12,10 +9,6 @@ use vizia_plug::{create_vizia_editor, ViziaState, ViziaTheming};
 use crate::GainParams;
 
 pub const NOTO_SANS: &str = "Noto Sans";
-
-/// Interval at which the UI polls the peak-meter atomic that the audio thread writes into.
-/// 50 Hz is smooth enough for a meter and cheap.
-const PEAK_METER_POLL_INTERVAL: Duration = Duration::from_millis(20);
 
 // Makes sense to also define this here — easier to keep track of.
 pub(crate) fn default_state() -> Arc<ViziaState> {
@@ -28,38 +21,12 @@ pub(crate) fn create(
     editor_state: Arc<ViziaState>,
 ) -> Option<Box<dyn Editor>> {
     create_vizia_editor(editor_state, ViziaTheming::Custom, move |cx, _| {
-        // Bridge from the audio thread's `AtomicF32` peak-meter into a `SyncSignal<f32>` the
-        // UI can bind to. The audio thread writes the atomic; we poll it on a short vizia
-        // `Timer` and push the converted dBFS value into the signal. The `PeakMeter` widget
-        // then uses the signal's `SignalGet` implementation to drive its bar and hold-peak
-        // display.
-        let level_dbfs: SyncSignal<f32> = SyncSignal::new(util::MINUS_INFINITY_DB);
-        let poll_target = peak_meter.clone();
-        // Use a self-restarting one-shot timer instead of an infinite timer. This avoids
-        // catch-up bursts when the host/UI thread is stalled, which can make plugin UIs appear
-        // to hang while processing a large backlog of overdue ticks.
-        let timer_handle: Rc<Cell<Option<Timer>>> = Rc::new(Cell::new(None));
-        let timer_handle_cb = timer_handle.clone();
-        let timer = cx.add_timer(
-            PEAK_METER_POLL_INTERVAL,
-            Some(PEAK_METER_POLL_INTERVAL),
-            move |cx, reason| match reason {
-                TimerAction::Tick(_) => {
-                    let raw = poll_target.load(Ordering::Relaxed);
-                    level_dbfs.set_if_changed(util::gain_to_db(raw));
-                }
-
-                TimerAction::Stop => {
-                    if let Some(timer) = timer_handle_cb.get() {
-                        cx.start_timer(timer);
-                    }
-                }
-
-                TimerAction::Start => {}
-            },
-        );
-        timer_handle.set(Some(timer));
-        cx.start_timer(timer);
+        // Read directly from the shared peak-meter atomic inside the widget's draw path.
+        // This avoids editor-local timer callbacks that can be sensitive to host behavior.
+        let meter_source = {
+            let peak_meter = peak_meter.clone();
+            move || util::gain_to_db(peak_meter.load(std::sync::atomic::Ordering::Relaxed))
+        };
 
         VStack::new(cx, |cx| {
             Label::new(cx, "Gain GUI")
@@ -72,7 +39,7 @@ pub(crate) fn create(
             Label::new(cx, "Gain");
             ParamSlider::new(cx, &params.gain);
 
-            PeakMeter::new(cx, level_dbfs, Some(Duration::from_millis(600)));
+            PeakMeter::new_with_getter(cx, meter_source, Some(Duration::from_millis(600)));
         })
         .alignment(Alignment::TopCenter);
     })
