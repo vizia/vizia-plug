@@ -14,8 +14,8 @@ crate-type = ["cdylib", "lib"]
 
 [dependencies]
 nice-plug = { git = "https://codeberg.org/BillyDM/nice-plug.git", rev = "7e7f63049dc2250fa755bc45acb1badce8c7bd4c" }
-vizia = { git = "https://github.com/vizia/vizia", rev = "9f97d24fd17b330390c62d58137d5fdbc206f31a", default-features = false, features = ["baseview", "clipboard", "x11"] }
-vizia_reactive = { git = "https://github.com/vizia/vizia", rev = "9f97d24fd17b330390c62d58137d5fdbc206f31a" }
+vizia = { git = "https://github.com/vizia/vizia", rev = "bbf98e643333d2533983f5866296036c34284018", default-features = false, features = ["baseview", "clipboard", "x11"] }
+vizia_reactive = { git = "https://github.com/vizia/vizia", rev = "bbf98e643333d2533983f5866296036c34284018" }
 # vizia = { path = "../vizia", default_features = false, features = ["baseview", "clipboard", "x11"] }
 
 crossbeam = "0.8"
