@@ -205,6 +205,7 @@ impl ParamSlider {
         // [`ParamSliderStyle`].
         Element::new(cx)
             .class("fill")
+            .position_type(PositionType::Absolute)
             .height(Stretch(1.0))
             .left(fill_start_delta.map(|(start_t, _)| Percentage(*start_t * 100.0)))
             .width(fill_start_delta.map(|(_, delta)| Percentage(*delta * 100.0)))
@@ -215,6 +216,7 @@ impl ParamSlider {
         Element::new(cx)
             .class("fill")
             .class("fill--modulation")
+            .position_type(PositionType::Absolute)
             .height(Stretch(1.0))
             .visibility(modulation_start_delta.map(|(_, delta)| *delta != 0.0))
             // Widths can't be negative, so compensate the start position if the width is
