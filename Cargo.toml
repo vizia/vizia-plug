@@ -13,7 +13,7 @@ members = ["xtask", "examples/gain_gui"]
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-nice-plug = { git = "https://codeberg.org/RustAudio/nice-plug.git", rev = "7e7f63049dc2250fa755bc45acb1badce8c7bd4c" }
+nice-plug = { git = "https://codeberg.org/RustAudio/nice-plug.git", rev = "a732adb543ba287aa14c6ab7e13562e87cdc8691" }
 vizia = { git = "https://github.com/vizia/vizia", rev = "bbf98e643333d2533983f5866296036c34284018", default-features = false, features = ["baseview", "clipboard", "x11"] }
 vizia_reactive = { git = "https://github.com/vizia/vizia", rev = "bbf98e643333d2533983f5866296036c34284018" }
 # vizia = { path = "../vizia", default_features = false, features = ["baseview", "clipboard", "x11"] }
