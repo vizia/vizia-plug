@@ -4,4 +4,4 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-nice_plug_xtask = { package = "nice-plug-xtask", git = "https://codeberg.org/BillyDM/nice-plug.git" }
+nice-plug-xtask = "0.1.1"
