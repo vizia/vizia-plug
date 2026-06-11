@@ -24,7 +24,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use nice_plug::prelude::ParamPtr;
+use nice_plug_core::params::internals::ParamPtr;
 use parking_lot::Mutex;
 use vizia::prelude::*;
 

@@ -1,6 +1,6 @@
 //! A super simple peak meter widget.
 
-use nice_plug::prelude::util;
+use nice_plug_core::util;
 use std::cell::Cell;
 use std::sync::Arc;
 use std::time::Duration;
@@ -218,10 +218,7 @@ impl PeakMeterBar {
         let mut held = self.held_peak_dbfs.get();
         let held_at = self.last_held_at.get();
 
-        if current_level_dbfs >= held
-            || held_at.is_none()
-            || now > held_at.unwrap() + hold_time
-        {
+        if current_level_dbfs >= held || held_at.is_none() || now > held_at.unwrap() + hold_time {
             held = current_level_dbfs;
             self.held_peak_dbfs.set(held);
             self.last_held_at.set(Some(now));
@@ -282,8 +279,8 @@ impl View for PeakMeterBar {
         let bar_tick_coordinates = (bar_ticks_start_x..bar_ticks_end_x)
             .step_by(((TICK_WIDTH + TICK_GAP) * dpi_scale).round() as usize);
         for tick_x in bar_tick_coordinates {
-            let tick_fraction = (tick_x - bar_ticks_start_x) as f32
-                / (bar_ticks_end_x - bar_ticks_start_x) as f32;
+            let tick_fraction =
+                (tick_x - bar_ticks_start_x) as f32 / (bar_ticks_end_x - bar_ticks_start_x) as f32;
             let tick_db = (tick_fraction * (MAX_TICK - MIN_TICK)) + MIN_TICK;
             if tick_db > level_dbfs {
                 break;

@@ -1,8 +1,9 @@
 //! The [`Editor`] trait implementation for Vizia editors.
 
 use crossbeam::atomic::AtomicCell;
-use nice_plug::debug::*;
-use nice_plug::prelude::{Editor, GuiContext, Modifiers, ParentWindowHandle, VirtualKeyCode};
+use nice_plug_core::context::gui::GuiContext;
+use nice_plug_core::debug::*;
+use nice_plug_core::editor::{Editor, Modifiers, ParentWindowHandle, VirtualKeyCode};
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -143,8 +144,7 @@ impl Editor for ViziaEditor {
 
             // And we'll link `WindowEvent::ResizeWindow` and `WindowEvent::SetScale` events to our
             // `ViziaState`. We'll notify the host when any of these change.
-            let current_inner_window_size =
-                EventContext::new(cx).cache.get_bounds(Entity::root());
+            let current_inner_window_size = EventContext::new(cx).cache.get_bounds(Entity::root());
             widgets::WindowModel {
                 context: context.clone(),
                 vizia_state: vizia_state.clone(),

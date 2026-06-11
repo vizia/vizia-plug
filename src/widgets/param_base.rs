@@ -1,10 +1,11 @@
 //! A base widget for creating other widgets that integrate with NIH-plug's [`Param`] types.
 
-use nice_plug::prelude::*;
+use nice_plug_core::params::internals::ParamPtr;
+use nice_plug_core::params::{Param, ParamFlags};
 use vizia::prelude::*;
 
-use super::param_registry::{ParamAxis, ParamRegistry};
 use super::RawParamEvent;
+use super::param_registry::{ParamAxis, ParamRegistry};
 
 /// A helper for creating parameter widgets. The general idea is that a parameter widget struct
 /// stores a [`ParamWidgetBase`] field, calls [`ParamWidgetBase::view`] in its build function,
@@ -111,7 +112,9 @@ impl ParamWidgetBase {
     /// }
     /// ```
     pub fn new<P: Param>(_cx: &Context, param: &P) -> Self {
-        Self { param_ptr: param.as_ptr() }
+        Self {
+            param_ptr: param.as_ptr(),
+        }
     }
 
     /// Create a view using the parameter's data. The `content` closure receives a
@@ -125,16 +128,16 @@ impl ParamWidgetBase {
         P: Param + 'static,
         F: FnOnce(&mut Context, ParamWidgetData<'a, P>) -> R,
     {
-        let param_data = ParamWidgetData { param, param_ptr: param.as_ptr() };
+        let param_data = ParamWidgetData {
+            param,
+            param_ptr: param.as_ptr(),
+        };
         content(cx, param_data)
     }
 
     /// Shorthand for [`view`](Self::view) that returns a builder closure suitable for
     /// [`View::build`](vizia::prelude::View::build).
-    pub fn build_view<'a, P, F, R>(
-        param: &'a P,
-        content: F,
-    ) -> impl FnOnce(&mut Context) -> R + 'a
+    pub fn build_view<'a, P, F, R>(param: &'a P, content: F) -> impl FnOnce(&mut Context) -> R + 'a
     where
         P: Param + 'static,
         F: FnOnce(&mut Context, ParamWidgetData<'a, P>) -> R + 'a,
