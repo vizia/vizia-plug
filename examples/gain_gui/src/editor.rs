@@ -1,5 +1,5 @@
-use atomic_float::AtomicF32;
 use nice_plug::prelude::{util, Editor};
+use nice_plug::util::AtomicF32;
 use std::sync::Arc;
 use std::time::Duration;
 use vizia_plug::vizia::prelude::*;
