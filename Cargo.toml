@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 authors = ["George Atkinson <geom3trik@vizia.dev>"]
 license = "MIT"
-description = "An adapter to use VIZIA GUIs with NIH-plug"
+description = "An adapter to use VIZIA GUIs with nice-plug"
 
 [workspace]
 members = ["xtask", "examples/gain_gui"]
@@ -13,7 +13,7 @@ members = ["xtask", "examples/gain_gui"]
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-nice-plug = "0.1.8"
+nice-plug-core = "0.1.4"
 vizia = { git = "https://github.com/vizia/vizia", rev = "bbf98e643333d2533983f5866296036c34284018", default-features = false, features = ["baseview", "clipboard", "x11"] }
 vizia_reactive = { git = "https://github.com/vizia/vizia", rev = "bbf98e643333d2533983f5866296036c34284018" }
 # vizia = { path = "../vizia", default_features = false, features = ["baseview", "clipboard", "x11"] }

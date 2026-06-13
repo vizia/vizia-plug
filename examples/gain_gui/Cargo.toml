@@ -13,5 +13,3 @@ crate-type = ["cdylib", "lib"]
 [dependencies]
 nice-plug = { version = "0.1.8", features = ["standalone"] }
 vizia_plug = { path = "../../" }
-
-atomic_float = "0.1"

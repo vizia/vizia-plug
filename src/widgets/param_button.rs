@@ -1,6 +1,6 @@
 //! A toggleable button that integrates with NIH-plug's [`Param`] types.
 
-use nice_plug::prelude::Param;
+use nice_plug_core::params::Param;
 use vizia::prelude::*;
 
 use super::param_base::ParamWidgetBase;

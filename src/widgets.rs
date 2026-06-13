@@ -6,8 +6,10 @@
 //! to copy the widgets and modify them to your personal taste.
 
 use crossbeam::atomic::AtomicCell;
-use nice_plug::debug::*;
-use nice_plug::prelude::{GuiContext, Param, ParamPtr};
+use nice_plug_core::context::gui::GuiContext;
+use nice_plug_core::debug::*;
+use nice_plug_core::params::Param;
+use nice_plug_core::params::internals::ParamPtr;
 use std::sync::Arc;
 use vizia::prelude::*;
 
